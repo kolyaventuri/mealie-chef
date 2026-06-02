@@ -172,6 +172,10 @@
     @apply size-11 p-0;
   }
 
+  .icon-button--small {
+    @apply size-8 min-h-8;
+  }
+
   .button--primary {
     @apply border-accent bg-accent text-white;
   }
@@ -189,6 +193,10 @@
   }
 
   .theme-toggle {
+    @apply text-accent;
+  }
+
+  .setup-toggle {
     @apply text-accent;
   }
 
@@ -336,6 +344,10 @@
     grid-template-columns: minmax(170px, 205px) minmax(0, 1fr) minmax(320px, 430px);
   }
 
+  .cook-layout.is-setup-hidden {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 430px);
+  }
+
   .session-panel,
   .steps-region,
   .ingredients-region {
@@ -349,6 +361,10 @@
 
   .session-panel {
     @apply grid gap-4;
+  }
+
+  .session-panel__header {
+    @apply flex items-center justify-between gap-3 border-b border-line pb-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted;
   }
 
   .share-block {
@@ -595,6 +611,10 @@
 
   .week-grid,
   .cook-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .cook-layout.is-setup-hidden {
     grid-template-columns: 1fr;
   }
 

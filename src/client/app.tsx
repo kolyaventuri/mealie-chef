@@ -7,10 +7,12 @@ import {
 	Copy,
 	Loader2,
 	Moon,
+	QrCode,
 	RefreshCw,
 	Sun,
 	Wifi,
 	WifiOff,
+	X,
 } from 'lucide-react';
 import {QRCodeSVG} from 'qrcode.react';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
@@ -293,6 +295,8 @@ const CookingPage = ({onToggleTheme, theme}: CookingPageProps) => {
 	const [recipe, setRecipe] = useState<RecipeDetail>();
 	const [presence, setPresence] = useState(0);
 	const [isConnected, setIsConnected] = useState(false);
+	const [hasAutoHiddenSetup, setHasAutoHiddenSetup] = useState(false);
+	const [isSetupPanelHidden, setIsSetupPanelHidden] = useState(false);
 	const [error, setError] = useState<string>();
 	const socketRef = useRef<WebSocket | undefined>(null);
 	const copyText = useMemo(() => `${globalThis.location.origin}/session`, []);
@@ -400,6 +404,15 @@ const CookingPage = ({onToggleTheme, theme}: CookingPageProps) => {
 		};
 	}, []);
 
+	const connectedDeviceCount = presence || 1;
+
+	useEffect(() => {
+		if (connectedDeviceCount > 1 && !hasAutoHiddenSetup) {
+			setIsSetupPanelHidden(true);
+			setHasAutoHiddenSetup(true);
+		}
+	}, [connectedDeviceCount, hasAutoHiddenSetup]);
+
 	const sendPatch = async (patch: SessionMutation): Promise<void> => {
 		const socket = socketRef.current;
 
@@ -454,6 +467,20 @@ const CookingPage = ({onToggleTheme, theme}: CookingPageProps) => {
 					<span>Cooking now</span>
 				</div>
 				<div className="topbar__actions">
+					{isSetupPanelHidden ? (
+						<button
+							aria-label="Show setup panel"
+							className="icon-button setup-toggle"
+							title="Show setup panel"
+							type="button"
+							onClick={() => {
+								setIsSetupPanelHidden(false);
+							}}
+						>
+							<QrCode aria-hidden="true" size={19} />
+							<span className="sr-only">Show setup panel</span>
+						</button>
+					) : null}
 					<ThemeToggle theme={theme} onToggleTheme={onToggleTheme} />
 					<div className={`connection-pill ${isConnected ? 'is-online' : ''}`}>
 						{isConnected ? (
@@ -461,48 +488,67 @@ const CookingPage = ({onToggleTheme, theme}: CookingPageProps) => {
 						) : (
 							<WifiOff aria-hidden="true" size={17} />
 						)}
-						{presence || 1}
+						{connectedDeviceCount}
 					</div>
 				</div>
 			</header>
 
 			{error ? <div className="banner banner--error">{error}</div> : null}
 
-			<section className="cook-layout">
-				<aside className="session-panel">
-					<div className="share-block">
-						<div className="qr-box">
-							<QRCodeSVG value={copyText} size={148} />
-						</div>
-						<button
-							className="button"
-							type="button"
-							onClick={() => {
-								void navigator.clipboard.writeText(copyText);
-							}}
-						>
-							<Copy aria-hidden="true" size={18} />
-							Copy link
-						</button>
-					</div>
-					<div className="step-rail" aria-label="Step selector">
-						{recipe.steps.map((step) => (
+			<section
+				className={`cook-layout ${isSetupPanelHidden ? 'is-setup-hidden' : ''}`}
+			>
+				{isSetupPanelHidden ? null : (
+					<aside className="session-panel">
+						<div className="session-panel__header">
+							<span>Setup</span>
 							<button
-								className={step.index === activeStepIndex ? 'is-active' : ''}
-								key={step.index}
+								aria-label="Hide setup panel"
+								className="icon-button icon-button--small"
+								title="Hide setup panel"
 								type="button"
-								onClick={() =>
-									void sendPatch({
-										activeStepIndex: step.index,
-										type: 'set-active-step',
-									})
-								}
+								onClick={() => {
+									setIsSetupPanelHidden(true);
+								}}
 							>
-								{step.index + 1}
+								<X aria-hidden="true" size={17} />
+								<span className="sr-only">Hide setup panel</span>
 							</button>
-						))}
-					</div>
-				</aside>
+						</div>
+						<div className="share-block">
+							<div className="qr-box">
+								<QRCodeSVG value={copyText} size={148} />
+							</div>
+							<button
+								className="button"
+								type="button"
+								onClick={() => {
+									void navigator.clipboard.writeText(copyText);
+								}}
+							>
+								<Copy aria-hidden="true" size={18} />
+								Copy link
+							</button>
+						</div>
+						<div className="step-rail" aria-label="Step selector">
+							{recipe.steps.map((step) => (
+								<button
+									className={step.index === activeStepIndex ? 'is-active' : ''}
+									key={step.index}
+									type="button"
+									onClick={() =>
+										void sendPatch({
+											activeStepIndex: step.index,
+											type: 'set-active-step',
+										})
+									}
+								>
+									{step.index + 1}
+								</button>
+							))}
+						</div>
+					</aside>
+				)}
 
 				<section className="steps-region">
 					<div className="step-controls">
