@@ -140,6 +140,9 @@ const sendGlobalPresence = (sockets: Set<WebSocketLike>): void => {
 	});
 };
 
+const isApiOrRealtimePath = (url: string): boolean =>
+	url === '/ws' || url.startsWith('/api/') || url.startsWith('/ws/');
+
 const getSessionId = (requestParameters: unknown): string => {
 	if (
 		!isRecord(requestParameters) ||
@@ -434,7 +437,7 @@ export const createApp = async ({
 		},
 	);
 
-	app.get('/ws/global-session', {websocket: true}, (socket: WebSocketLike) => {
+	const handleGlobalWebsocket = (socket: WebSocketLike): void => {
 		globalClients.add(socket);
 
 		const session = store.getGlobalSession();
@@ -511,7 +514,10 @@ export const createApp = async ({
 			globalClients.delete(socket);
 			sendGlobalPresence(globalClients);
 		});
-	});
+	};
+
+	app.get('/ws', {websocket: true}, handleGlobalWebsocket);
+	app.get('/ws/global-session', {websocket: true}, handleGlobalWebsocket);
 
 	if (fs.existsSync(config.staticRoot)) {
 		await app.register(fastifyStatic, {
@@ -520,7 +526,7 @@ export const createApp = async ({
 		});
 
 		app.setNotFoundHandler((request, reply) => {
-			if (request.url.startsWith('/api/') || request.url.startsWith('/ws/')) {
+			if (isApiOrRealtimePath(request.url)) {
 				void reply.status(404).send({message: 'Not found.'});
 				return;
 			}
@@ -529,7 +535,7 @@ export const createApp = async ({
 		});
 	} else {
 		app.setNotFoundHandler((request, reply) => {
-			if (request.url.startsWith('/api/') || request.url.startsWith('/ws/')) {
+			if (isApiOrRealtimePath(request.url)) {
 				void reply.status(404).send({message: 'Not found.'});
 				return;
 			}

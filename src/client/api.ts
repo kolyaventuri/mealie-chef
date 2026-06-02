@@ -134,5 +134,5 @@ export const websocketUrl = (sessionId: string): string => {
 export const globalWebsocketUrl = (): string => {
 	const protocol = globalThis.location.protocol === 'https:' ? 'wss:' : 'ws:';
 
-	return `${protocol}//${globalThis.location.host}/ws/global-session`;
+	return `${protocol}//${globalThis.location.host}/ws`;
 };
