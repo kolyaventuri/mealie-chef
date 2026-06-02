@@ -43,13 +43,17 @@ describe('client components', () => {
 		render(
 			<FormattedContent
 				markdown={
-					'**Whisk**\n\n<script>alert("no")</script>\n\n| A | B |\n| - | - |\n| 1 | 2 |'
+					'### Sauce\n**Whisk** sesame oil\nand tamari\n\n- Ginger\n- Garlic\n\n`low heat`\n\n<script>alert("no")</script>\n\n| A | B |\n| - | - |\n| 1 | 2 |'
 				}
 			/>,
 		);
 
+		expect(screen.getByRole('heading', {name: 'Sauce'})).toBeInTheDocument();
 		expect(screen.getByText('Whisk')).toBeInTheDocument();
+		expect(screen.getByText('Ginger')).toBeInTheDocument();
+		expect(screen.getByText('low heat')).toBeInTheDocument();
 		expect(document.querySelector('script')).not.toBeInTheDocument();
+		expect(document.querySelector('br')).toBeInTheDocument();
 		expect(document.querySelector('table')).toBeInTheDocument();
 	});
 

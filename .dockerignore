@@ -1,0 +1,12 @@
+.DS_Store
+.env
+.env.*
+.git
+.history
+.pnpm-store
+coverage
+data
+dist
+node_modules
+npm-debug.log*
+pnpm-debug.log*

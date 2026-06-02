@@ -10,11 +10,12 @@ type FormattedContentProps = {
 export const renderSafeMarkdown = (markdown: string): string => {
 	const html = marked.parse(markdown, {
 		async: false,
+		breaks: true,
 		gfm: true,
 	});
 
 	return DOMPurify.sanitize(html, {
-		ADD_ATTR: ['target'],
+		ADD_ATTR: ['rel', 'target'],
 	});
 };
 
