@@ -22,12 +22,15 @@ export const WeekPlanner = ({days, onStartRecipe}: WeekPlannerProps) => (
 				key={day.date}
 			>
 				<header className="day-panel__header">
-					<span>
-						{new Date(`${day.date}T12:00:00`).toLocaleDateString(undefined, {
-							weekday: 'short',
-						})}
-					</span>
-					<strong>{day.date.slice(5)}</strong>
+					<div className="day-panel__date">
+						<strong>
+							{new Date(`${day.date}T12:00:00`).toLocaleDateString(undefined, {
+								weekday: 'short',
+							})}
+						</strong>
+						<span>{day.date.slice(5)}</span>
+					</div>
+					{day.isToday ? <span className="today-pill">Today</span> : null}
 				</header>
 				<div className="day-panel__entries">
 					{day.entries.length > 0 ? (
@@ -39,7 +42,7 @@ export const WeekPlanner = ({days, onStartRecipe}: WeekPlannerProps) => (
 							/>
 						))
 					) : (
-						<p className="muted">No meals</p>
+						<p className="day-panel__empty">No meals</p>
 					)}
 				</div>
 			</section>
@@ -104,6 +107,12 @@ export const RecipeSearch = ({
 	recipes,
 }: RecipeSearchProps) => (
 	<section className="search-panel" aria-label="Recipe search">
+		<header className="search-panel__header">
+			<div>
+				<h2>Recipes</h2>
+				<p>Search Mealie</p>
+			</div>
+		</header>
 		<form
 			className="search-form"
 			onSubmit={(event) => {
@@ -134,22 +143,26 @@ export const RecipeSearch = ({
 			</button>
 		</form>
 		<div className="search-results">
-			{recipes.map((recipe) => (
-				<button
-					className="recipe-row"
-					key={recipe.slug}
-					type="button"
-					onClick={() => {
-						onStartRecipe(recipe);
-					}}
-				>
-					<span>
-						<strong>{recipe.name}</strong>
-						{recipe.description ? <small>{recipe.description}</small> : null}
-					</span>
-					<Play aria-hidden="true" size={18} />
-				</button>
-			))}
+			{recipes.length > 0 ? (
+				recipes.map((recipe) => (
+					<button
+						className="recipe-row"
+						key={recipe.slug}
+						type="button"
+						onClick={() => {
+							onStartRecipe(recipe);
+						}}
+					>
+						<span>
+							<strong>{recipe.name}</strong>
+							{recipe.description ? <small>{recipe.description}</small> : null}
+						</span>
+						<Play aria-hidden="true" size={18} />
+					</button>
+				))
+			) : (
+				<p className="search-results__empty">Search by name or ingredient.</p>
+			)}
 		</div>
 	</section>
 );

@@ -6,7 +6,9 @@ import {
 	ChefHat,
 	Copy,
 	Loader2,
+	Moon,
 	RefreshCw,
+	Sun,
 	Wifi,
 	WifiOff,
 } from 'lucide-react';
@@ -55,8 +57,31 @@ const navigate = (path: string): void => {
 	globalThis.dispatchEvent(new PopStateEvent('popstate'));
 };
 
+type Theme = 'dark' | 'light';
+
+const themeStorageKey = 'mealie-ipad-sync-theme';
+
+const readStoredTheme = (): Theme => {
+	try {
+		const storedTheme = globalThis.localStorage.getItem(themeStorageKey);
+
+		if (storedTheme === 'dark' || storedTheme === 'light') {
+			return storedTheme;
+		}
+	} catch {
+		// Local storage can be unavailable in restricted browser contexts.
+	}
+
+	if (globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches) {
+		return 'dark';
+	}
+
+	return 'light';
+};
+
 export const App = () => {
 	const [route, setRoute] = useState<Route>(parseRoute);
+	const [theme, setTheme] = useState<Theme>(readStoredTheme);
 
 	useEffect(() => {
 		const onPopState = () => {
@@ -70,22 +95,45 @@ export const App = () => {
 		};
 	}, []);
 
+	useEffect(() => {
+		document.documentElement.dataset.theme = theme;
+		document.documentElement.style.colorScheme = theme;
+
+		try {
+			globalThis.localStorage.setItem(themeStorageKey, theme);
+		} catch {
+			// Local storage can be unavailable in restricted browser contexts.
+		}
+	}, [theme]);
+
+	const toggleTheme = () => {
+		setTheme((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'));
+	};
+
 	return route.name === 'session' ? (
-		<CookingPage />
+		<CookingPage theme={theme} onToggleTheme={toggleTheme} />
 	) : (
 		<PlannerPage
+			theme={theme}
 			onOpenSession={() => {
 				navigate('/session');
 			}}
+			onToggleTheme={toggleTheme}
 		/>
 	);
 };
 
 type PlannerPageProps = {
 	onOpenSession(): void;
+	onToggleTheme(): void;
+	theme: Theme;
 };
 
-const PlannerPage = ({onOpenSession}: PlannerPageProps) => {
+const PlannerPage = ({
+	onOpenSession,
+	onToggleTheme,
+	theme,
+}: PlannerPageProps) => {
 	const [week, setWeek] =
 		useState<Awaited<ReturnType<typeof api.getWeekPlanner>>>();
 	const [recipes, setRecipes] = useState<RecipeSummary[]>([]);
@@ -157,15 +205,18 @@ const PlannerPage = ({onOpenSession}: PlannerPageProps) => {
 						<span>Kitchen display</span>
 					</div>
 				</div>
-				<button
-					className="icon-button"
-					title="Refresh"
-					type="button"
-					onClick={loadWeek}
-				>
-					<RefreshCw aria-hidden="true" size={20} />
-					<span className="sr-only">Refresh</span>
-				</button>
+				<div className="topbar__actions">
+					<ThemeToggle theme={theme} onToggleTheme={onToggleTheme} />
+					<button
+						className="icon-button"
+						title="Refresh"
+						type="button"
+						onClick={loadWeek}
+					>
+						<RefreshCw aria-hidden="true" size={20} />
+						<span className="sr-only">Refresh</span>
+					</button>
+				</div>
 			</header>
 
 			{error ? <div className="banner banner--error">{error}</div> : null}
@@ -173,8 +224,13 @@ const PlannerPage = ({onOpenSession}: PlannerPageProps) => {
 			<section className="planner-layout">
 				<div className="planner-main">
 					<div className="section-heading">
-						<CalendarDays aria-hidden="true" size={22} />
-						<h1>Week</h1>
+						<span className="section-heading__icon">
+							<CalendarDays aria-hidden="true" size={22} />
+						</span>
+						<div>
+							<h1>Meal Plan</h1>
+							<p>This week</p>
+						</div>
 					</div>
 					{isLoading ? (
 						<div className="loading-row">
@@ -201,7 +257,38 @@ const PlannerPage = ({onOpenSession}: PlannerPageProps) => {
 	);
 };
 
-const CookingPage = () => {
+type ThemeToggleProps = {
+	onToggleTheme(): void;
+	theme: Theme;
+};
+
+const ThemeToggle = ({onToggleTheme, theme}: ThemeToggleProps) => {
+	const nextTheme = theme === 'dark' ? 'light' : 'dark';
+
+	return (
+		<button
+			aria-label={`Switch to ${nextTheme} mode`}
+			className="icon-button theme-toggle"
+			title={`Switch to ${nextTheme} mode`}
+			type="button"
+			onClick={onToggleTheme}
+		>
+			{theme === 'dark' ? (
+				<Sun aria-hidden="true" size={19} />
+			) : (
+				<Moon aria-hidden="true" size={19} />
+			)}
+			<span className="sr-only">Switch to {nextTheme} mode</span>
+		</button>
+	);
+};
+
+type CookingPageProps = {
+	onToggleTheme(): void;
+	theme: Theme;
+};
+
+const CookingPage = ({onToggleTheme, theme}: CookingPageProps) => {
 	const [session, setSession] = useState<CookingSession>();
 	const [recipe, setRecipe] = useState<RecipeDetail>();
 	const [presence, setPresence] = useState(0);
@@ -364,15 +451,18 @@ const CookingPage = () => {
 				</button>
 				<div className="recipe-title">
 					<strong>{recipe.name}</strong>
-					<span>Shared session</span>
+					<span>Cooking now</span>
 				</div>
-				<div className={`connection-pill ${isConnected ? 'is-online' : ''}`}>
-					{isConnected ? (
-						<Wifi aria-hidden="true" size={17} />
-					) : (
-						<WifiOff aria-hidden="true" size={17} />
-					)}
-					{presence || 1}
+				<div className="topbar__actions">
+					<ThemeToggle theme={theme} onToggleTheme={onToggleTheme} />
+					<div className={`connection-pill ${isConnected ? 'is-online' : ''}`}>
+						{isConnected ? (
+							<Wifi aria-hidden="true" size={17} />
+						) : (
+							<WifiOff aria-hidden="true" size={17} />
+						)}
+						{presence || 1}
+					</div>
 				</div>
 			</header>
 
@@ -380,19 +470,21 @@ const CookingPage = () => {
 
 			<section className="cook-layout">
 				<aside className="session-panel">
-					<div className="qr-box">
-						<QRCodeSVG value={copyText} size={148} />
+					<div className="share-block">
+						<div className="qr-box">
+							<QRCodeSVG value={copyText} size={148} />
+						</div>
+						<button
+							className="button"
+							type="button"
+							onClick={() => {
+								void navigator.clipboard.writeText(copyText);
+							}}
+						>
+							<Copy aria-hidden="true" size={18} />
+							Copy link
+						</button>
 					</div>
-					<button
-						className="button"
-						type="button"
-						onClick={() => {
-							void navigator.clipboard.writeText(copyText);
-						}}
-					>
-						<Copy aria-hidden="true" size={18} />
-						Copy link
-					</button>
 					<div className="step-rail" aria-label="Step selector">
 						{recipe.steps.map((step) => (
 							<button
@@ -450,7 +542,10 @@ const CookingPage = () => {
 				</section>
 
 				<aside className="ingredients-region">
-					<h2>Ingredients</h2>
+					<header className="ingredients-region__header">
+						<h2>Ingredients</h2>
+						<span>{recipe.ingredients.length}</span>
+					</header>
 					<IngredientList
 						activeStepIndex={activeStepIndex}
 						ingredients={recipe.ingredients}
