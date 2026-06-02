@@ -1,0 +1,527 @@
+:root {
+  color: #17201c;
+  background: #f6f3ed;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding: 18px;
+}
+
+.app-shell--cooking {
+  background:
+    linear-gradient(90deg, rgba(82, 137, 96, 0.08), transparent 45%),
+    #f8f6f0;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 1480px;
+  margin: 0 auto 18px;
+}
+
+.topbar--cooking {
+  max-width: none;
+}
+
+.brand-mark,
+.recipe-title,
+.section-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-mark strong,
+.recipe-title strong {
+  display: block;
+  font-size: 1.2rem;
+}
+
+.brand-mark span,
+.recipe-title span,
+.muted,
+.plan-entry__meal,
+.recipe-row small {
+  color: #66716a;
+}
+
+.section-heading h1,
+.ingredients-region h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.icon-button,
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  border: 1px solid #c8d2c9;
+  border-radius: 8px;
+  padding: 0 14px;
+  gap: 8px;
+  color: #18241d;
+  background: #fffefa;
+}
+
+.icon-button {
+  width: 44px;
+  padding: 0;
+}
+
+.button--primary {
+  border-color: #2d6b4f;
+  color: #fffefa;
+  background: #2d6b4f;
+}
+
+.banner {
+  max-width: 1480px;
+  margin: 0 auto 16px;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.banner--error {
+  border: 1px solid #d58779;
+  color: #6f2419;
+  background: #fff0ec;
+}
+
+.planner-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  gap: 18px;
+  min-width: 0;
+  max-width: 1480px;
+  margin: 0 auto;
+}
+
+.planner-main,
+.search-panel,
+.session-panel,
+.steps-region,
+.ingredients-region {
+  border: 1px solid #d9ddd4;
+  border-radius: 8px;
+  background: rgba(255, 254, 250, 0.9);
+}
+
+.planner-main,
+.search-panel {
+  min-width: 0;
+  padding: 16px;
+}
+
+.week-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin-top: 14px;
+  overflow-x: visible;
+  padding-bottom: 4px;
+}
+
+.day-panel {
+  min-height: 210px;
+  border: 1px solid #dce1d7;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfaf6;
+}
+
+.day-panel.is-today {
+  border-color: #e0ac45;
+  box-shadow: inset 0 0 0 2px rgba(224, 172, 69, 0.25);
+}
+
+.day-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.day-panel__entries,
+.search-results,
+.ingredient-list,
+.step-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.plan-entry,
+.recipe-row {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: 66px;
+  border: 1px solid #d7ded5;
+  border-radius: 8px;
+  padding: 10px;
+  gap: 4px;
+  text-align: left;
+  color: inherit;
+  background: #fff;
+}
+
+.plan-entry--button,
+.recipe-row {
+  grid-template-columns: minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 8px;
+}
+
+.plan-entry--button:hover,
+.recipe-row:hover,
+.icon-button:hover,
+.button:hover {
+  border-color: #2d6b4f;
+}
+
+.plan-entry__meal {
+  line-height: 1.1;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.plan-entry__text {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.plan-entry__text strong {
+  min-width: 0;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+}
+
+.plan-entry--button svg,
+.recipe-row svg {
+  justify-self: end;
+  color: #2d6b4f;
+}
+
+.search-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.search-form input {
+  width: 100%;
+  border: 1px solid #ccd5cb;
+  border-radius: 8px;
+  color: #17201c;
+  background: #fffefa;
+}
+
+.search-form input {
+  min-height: 42px;
+  padding: 0 12px;
+}
+
+.recipe-row span {
+  display: grid;
+  gap: 4px;
+}
+
+.cook-layout {
+  display: grid;
+  grid-template-columns: 190px minmax(420px, 1fr) minmax(320px, 430px);
+  gap: 16px;
+  align-items: start;
+}
+
+.session-panel,
+.steps-region,
+.ingredients-region {
+  padding: 14px;
+}
+
+.session-panel {
+  position: sticky;
+  top: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.qr-box {
+  display: grid;
+  place-items: center;
+  border: 1px solid #d7ded5;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fff;
+}
+
+.step-rail {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.step-rail button {
+  min-width: 0;
+  aspect-ratio: 1;
+  border: 1px solid #cbd4ca;
+  border-radius: 8px;
+  background: #fffefa;
+}
+
+.step-rail button.is-active {
+  border-color: #2d6b4f;
+  color: #fff;
+  background: #2d6b4f;
+}
+
+.connection-pill {
+  display: inline-flex;
+  align-items: center;
+  min-width: 64px;
+  min-height: 34px;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #c5d0ca;
+  border-radius: 999px;
+  padding: 0 10px;
+  color: #6f2419;
+  background: #fffefa;
+}
+
+.connection-pill.is-online {
+  color: #23563f;
+}
+
+.step-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.step-panel {
+  border: 1px solid #d7ded5;
+  border-radius: 8px;
+  padding: 14px;
+  background: #fffefa;
+  opacity: 0.78;
+}
+
+.step-panel.is-active {
+  border-color: #2d6b4f;
+  opacity: 1;
+  box-shadow: inset 4px 0 0 #2d6b4f;
+}
+
+.step-panel__header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: #4f5d55;
+}
+
+.formatted-step {
+  font-size: 1.08rem;
+  line-height: 1.58;
+}
+
+.formatted-step :first-child {
+  margin-top: 0;
+}
+
+.formatted-step :last-child {
+  margin-bottom: 0;
+}
+
+.formatted-step table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.formatted-step th,
+.formatted-step td {
+  border: 1px solid #d8ded6;
+  padding: 6px 8px;
+}
+
+.ingredients-region {
+  position: sticky;
+  top: 14px;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+}
+
+.ingredients-region h2 {
+  margin-bottom: 12px;
+}
+
+.ingredient-row {
+  border: 1px solid #d7ded5;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+}
+
+.ingredient-row.is-linked {
+  border-color: #e0ac45;
+  box-shadow: inset 3px 0 0 #e0ac45;
+}
+
+.ingredient-row.is-checked {
+  color: #69746d;
+  background: #f5f7f3;
+}
+
+.ingredient-row__check {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.ingredient-row__check input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ingredient-row__check svg {
+  margin-top: 1px;
+  color: #2d6b4f;
+}
+
+.ingredient-row__source-note {
+  margin: 8px 0 0 32px;
+  color: #66716a;
+  font-size: 0.92rem;
+}
+
+.loading-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+}
+
+.spin {
+  animation: spin 0.8s linear infinite;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 1120px) {
+  .planner-layout,
+  .cook-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .session-panel,
+  .ingredients-region {
+    position: static;
+    max-height: none;
+  }
+
+  .session-panel {
+    grid-template-columns: auto minmax(130px, 1fr);
+    align-items: start;
+  }
+
+  .step-rail {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(8, minmax(40px, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .week-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .day-panel {
+    min-height: 132px;
+  }
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    padding: 12px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+  }
+
+  .search-form,
+  .session-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .step-controls {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .week-grid {
+    grid-template-columns: 1fr;
+  }
+}
