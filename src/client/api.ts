@@ -27,9 +27,13 @@ type PatchResponse = {
 };
 
 const jsonRequest = async <T>(
-	path: string,
+	inPath: string,
 	options: RequestInit = {},
 ): Promise<T> => {
+	const path =
+		import.meta.env.VITE_NODE_ENV === 'local'
+			? `http://localhost:3100${inPath}`
+			: inPath;
 	const response = await fetch(path, {
 		...options,
 		headers: {

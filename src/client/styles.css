@@ -200,6 +200,45 @@
     @apply text-accent;
   }
 
+  .cook-mode-toggle {
+    @apply inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-line-strong px-3 text-sm font-semibold text-muted shadow-sm transition;
+    background: var(--panel-solid);
+  }
+
+  .cook-mode-toggle:hover {
+    @apply -translate-y-px border-accent shadow-panel;
+    background: var(--hover-bg);
+  }
+
+  .cook-mode-toggle.is-requested {
+    @apply border-amber text-amber;
+    background: rgb(201 138 36 / 0.1);
+  }
+
+  .cook-mode-toggle.is-active {
+    @apply border-accent text-accent;
+    background: rgb(15 122 89 / 0.1);
+  }
+
+  :root[data-theme="dark"] .cook-mode-toggle.is-active {
+    background: rgb(85 214 166 / 0.1);
+  }
+
+  .cook-mode-toggle.has-error {
+    @apply border-danger text-danger;
+    background: rgb(163 59 47 / 0.08);
+  }
+
+  .cook-mode-toggle__label {
+    @apply hidden sm:inline;
+  }
+
+  .cook-mode-toggle__status {
+    @apply rounded-full border px-2 py-0.5 text-[0.66rem] font-bold uppercase leading-none;
+    border-color: currentColor;
+    opacity: 0.78;
+  }
+
   .banner {
     @apply mx-auto mb-4 max-w-[1480px] rounded-lg border px-4 py-3 text-sm shadow-sm;
   }

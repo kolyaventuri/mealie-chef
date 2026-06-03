@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import process from 'node:process';
 import fastifyStatic from '@fastify/static';
 import fastifyWebsocket from '@fastify/websocket';
+import cors from '@fastify/cors';
 import fastify, {type FastifyInstance} from 'fastify';
 import {getDateRange, getWeekRange} from '../shared/date';
 import type {
@@ -174,6 +175,13 @@ export const createApp = async ({
 			level: process.env.LOG_LEVEL ?? 'info',
 		},
 	});
+
+	if (process.env.VITE_NODE_ENV === 'local') {
+		await app.register(cors, {
+			origin: true, // allow all origins
+		});
+	}
+
 	const mealie =
 		mealieClient ??
 		new MealieClient({

@@ -5,6 +5,7 @@ import {
 	ChevronRight,
 	ChefHat,
 	Copy,
+	CookingPot,
 	Loader2,
 	Moon,
 	QrCode,
@@ -285,6 +286,138 @@ const ThemeToggle = ({onToggleTheme, theme}: ThemeToggleProps) => {
 	);
 };
 
+const WakeLockToggle = () => {
+	const [isRequested, setIsRequested] = useState(false);
+	const [isActive, setIsActive] = useState(false);
+	const [statusMessage, setStatusMessage] = useState<string>();
+	const isRequestedRef = useRef(false);
+	const wakeLockRef = useRef<WakeLockSentinel | undefined>(undefined);
+
+	useEffect(() => {
+		isRequestedRef.current = isRequested;
+	}, [isRequested]);
+
+	const releaseWakeLock = useCallback(async (): Promise<void> => {
+		const wakeLock = wakeLockRef.current;
+		wakeLockRef.current = undefined;
+		setIsActive(false);
+
+		if (wakeLock && !wakeLock.released) {
+			try {
+				await wakeLock.release();
+			} catch {
+				// Browsers can release wake locks automatically before cleanup runs.
+			}
+		}
+	}, []);
+
+	const requestWakeLock = useCallback(async (): Promise<void> => {
+		if (!('wakeLock' in navigator)) {
+			wakeLockRef.current = undefined;
+			setIsActive(false);
+			setIsRequested(false);
+			setStatusMessage('Wake lock is not available in this browser.');
+			return;
+		}
+
+		if (document.visibilityState !== 'visible') {
+			setIsActive(false);
+			return;
+		}
+
+		try {
+			const wakeLock = await navigator.wakeLock.request('screen');
+
+			if (!isRequestedRef.current) {
+				try {
+					await wakeLock.release();
+				} catch {
+					// The lock may already be released by the browser.
+				}
+
+				return;
+			}
+
+			wakeLockRef.current = wakeLock;
+			setIsActive(true);
+			setStatusMessage(undefined);
+			wakeLock.addEventListener(
+				'release',
+				() => {
+					if (wakeLockRef.current === wakeLock) {
+						wakeLockRef.current = undefined;
+						setIsActive(false);
+					}
+				},
+				{once: true},
+			);
+		} catch (error) {
+			wakeLockRef.current = undefined;
+			setIsActive(false);
+			setIsRequested(false);
+			setStatusMessage(
+				error instanceof Error && error.message
+					? error.message
+					: 'Wake lock could not be enabled.',
+			);
+		}
+	}, []);
+
+	useEffect(() => {
+		if (!isRequested) {
+			void releaseWakeLock();
+			return;
+		}
+
+		void requestWakeLock();
+
+		const onVisibilityChange = () => {
+			if (document.visibilityState === 'visible' && !wakeLockRef.current) {
+				void requestWakeLock();
+			}
+		};
+
+		document.addEventListener('visibilitychange', onVisibilityChange);
+
+		return () => {
+			document.removeEventListener('visibilitychange', onVisibilityChange);
+			void releaseWakeLock();
+		};
+	}, [isRequested, releaseWakeLock, requestWakeLock]);
+
+	const onToggle = useCallback(() => {
+		setStatusMessage(undefined);
+		setIsRequested((currentValue) => !currentValue);
+	}, []);
+	const modeLabel = isRequested ? 'Disable Cook mode' : 'Enable Cook mode';
+	const statusLabel = statusMessage
+		? 'Blocked'
+		: isActive
+			? 'On'
+			: isRequested
+				? 'Starting'
+				: 'Off';
+
+	return (
+		<button
+			aria-label={
+				statusMessage ? `Cook mode unavailable: ${statusMessage}` : modeLabel
+			}
+			aria-pressed={isRequested}
+			className={`cook-mode-toggle ${isRequested ? 'is-requested' : ''} ${isActive ? 'is-active' : ''} ${statusMessage ? 'has-error' : ''}`}
+			title={statusMessage ?? modeLabel}
+			type="button"
+			onClick={onToggle}
+		>
+			<CookingPot aria-hidden="true" size={19} />
+			<span className="cook-mode-toggle__label">Cook mode</span>
+			<span className="cook-mode-toggle__status" aria-hidden="true">
+				{statusLabel}
+			</span>
+		</button>
+	);
+};
+
 type CookingPageProps = {
 	onToggleTheme(): void;
 	theme: Theme;
@@ -467,6 +600,7 @@ const CookingPage = ({onToggleTheme, theme}: CookingPageProps) => {
 					<span>Cooking now</span>
 				</div>
 				<div className="topbar__actions">
+					<WakeLockToggle />
 					{isSetupPanelHidden ? (
 						<button
 							aria-label="Show setup panel"
