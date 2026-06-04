@@ -37,6 +37,7 @@ const recipe = {
 			text: 'Serve.',
 		},
 	],
+	tools: [],
 };
 
 const createMockMealie = () =>

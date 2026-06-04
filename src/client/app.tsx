@@ -29,6 +29,7 @@ import {
 	IngredientList,
 	RecipeSearch,
 	StepStack,
+	ToolList,
 	WeekPlanner,
 } from './components';
 
@@ -751,6 +752,7 @@ const CookingPage = ({onToggleTheme, theme}: CookingPageProps) => {
 				</section>
 
 				<aside className="ingredients-region">
+					<ToolList tools={recipe.tools} />
 					<header className="ingredients-region__header">
 						<h2>Ingredients</h2>
 						<span>{recipe.ingredients.length}</span>

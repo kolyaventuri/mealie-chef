@@ -3,7 +3,7 @@
 import {fireEvent, render, screen} from '@testing-library/react';
 import {describe, expect, it, vi} from 'vitest';
 import {FormattedContent} from './formatted-content';
-import {IngredientList, StepStack, WeekPlanner} from './components';
+import {IngredientList, StepStack, ToolList, WeekPlanner} from './components';
 
 describe('client components', () => {
 	it('renders week planner recipes and starts a selected recipe', () => {
@@ -110,6 +110,23 @@ describe('client components', () => {
 
 		fireEvent.click(screen.getByRole('button', {name: 'Show step 1'}));
 		expect(onCollapsedStepChange).toHaveBeenCalledWith(0, false);
+	});
+
+	it('renders recipe tools when Mealie provides them', () => {
+		render(
+			<ToolList
+				tools={[
+					{
+						key: 'tool:large-pot',
+						name: 'Large Pot',
+						slug: 'large-pot',
+					},
+				]}
+			/>,
+		);
+
+		expect(screen.getByRole('region', {name: 'Tools'})).toBeInTheDocument();
+		expect(screen.getByText('Large Pot')).toBeInTheDocument();
 	});
 
 	it('supports checking ingredients and displaying source notes', () => {

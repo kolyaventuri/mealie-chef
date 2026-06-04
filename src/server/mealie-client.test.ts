@@ -29,6 +29,13 @@ describe('MealieClient mapping', () => {
 			],
 			recipeYield: '4 servings',
 			slug: 'vegetable-soup',
+			tools: [
+				{
+					id: 'dutch-oven',
+					name: 'Dutch oven',
+					slug: 'dutch-oven',
+				},
+			],
 		});
 
 		expect(recipe.ingredients).toEqual([
@@ -44,6 +51,13 @@ describe('MealieClient mapping', () => {
 				linkedIngredientKeys: ['ingredient:carrot'],
 				text: '**Simmer** until tender.',
 			}),
+		]);
+		expect(recipe.tools).toEqual([
+			{
+				key: 'tool:dutch-oven',
+				name: 'Dutch oven',
+				slug: 'dutch-oven',
+			},
 		]);
 	});
 

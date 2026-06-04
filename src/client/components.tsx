@@ -5,6 +5,7 @@ import {
 	Circle,
 	Play,
 	Search,
+	Wrench,
 } from 'lucide-react';
 import type {
 	IngredientState,
@@ -12,6 +13,7 @@ import type {
 	PlannerDay,
 	RecipeIngredient,
 	RecipeStep,
+	RecipeTool,
 	RecipeSummary,
 } from '../shared/types';
 import {FormattedContent} from './formatted-content';
@@ -230,6 +232,36 @@ export const StepStack = ({
 				);
 			})}
 		</div>
+	);
+};
+
+export type ToolListProps = {
+	tools: RecipeTool[];
+};
+
+export const ToolList = ({tools}: ToolListProps) => {
+	if (tools.length === 0) {
+		return null;
+	}
+
+	return (
+		<section className="tools-region" aria-label="Tools">
+			<header className="tools-region__header">
+				<div>
+					<Wrench aria-hidden="true" size={17} />
+					<h2>Tools</h2>
+				</div>
+				<span>{tools.length}</span>
+			</header>
+			<ul className="tool-list">
+				{tools.map((tool) => (
+					<li className="tool-chip" key={tool.key}>
+						<Wrench aria-hidden="true" size={15} />
+						<span>{tool.name}</span>
+					</li>
+				))}
+			</ul>
+		</section>
 	);
 };
 

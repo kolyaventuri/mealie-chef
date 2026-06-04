@@ -6,6 +6,7 @@ import type {
 	RecipeIngredient,
 	RecipeStep,
 	RecipeSummary,
+	RecipeTool,
 } from '../shared/types';
 import {HttpError, getString, isRecord} from './errors';
 
@@ -274,6 +275,66 @@ const mapStep = (payload: unknown, index: number): RecipeStep | undefined => {
 	};
 };
 
+const toolKeyFromParts = (
+	index: number,
+	parts: Record<string, unknown>,
+): string => {
+	const stableId =
+		asString(parts.id) ?? asString(parts.slug) ?? asString(parts.referenceId);
+
+	if (stableId) {
+		return `tool:${stableId}`;
+	}
+
+	const hash = createHash('sha1')
+		.update(
+			JSON.stringify({
+				index,
+				name: parts.name,
+			}),
+		)
+		.digest('hex')
+		.slice(0, 12);
+
+	return `tool:${index}:${hash}`;
+};
+
+const mapTool = (payload: unknown, index: number): RecipeTool | undefined => {
+	if (typeof payload === 'string') {
+		const name = payload.trim();
+
+		if (!name) {
+			return undefined;
+		}
+
+		return {
+			key: toolKeyFromParts(index, {name}),
+			name,
+		};
+	}
+
+	if (!isRecord(payload)) {
+		return undefined;
+	}
+
+	const name = textFrom(payload.name, payload.label, payload.title);
+
+	if (!name) {
+		return undefined;
+	}
+
+	return {
+		key: toolKeyFromParts(index, {
+			id: payload.id,
+			name,
+			referenceId: payload.referenceId,
+			slug: payload.slug,
+		}),
+		name,
+		slug: textFrom(payload.slug),
+	};
+};
+
 export const mapRecipeDetail = (payload: unknown): RecipeDetail => {
 	if (!isRecord(payload)) {
 		throw new HttpError(502, 'Mealie returned an unexpected recipe payload.');
@@ -300,6 +361,9 @@ export const mapRecipeDetail = (payload: unknown): RecipeDetail => {
 	)
 		.map((item, index) => mapStep(item, index))
 		.filter((step): step is RecipeStep => step !== undefined);
+	const tools = normalizeItems(payload.tools ?? payload.recipeTools)
+		.map((item, index) => mapTool(item, index))
+		.filter((tool): tool is RecipeTool => tool !== undefined);
 	const ingredientKeys = new Set(
 		ingredients.map((ingredient) => ingredient.key),
 	);
@@ -326,6 +390,7 @@ export const mapRecipeDetail = (payload: unknown): RecipeDetail => {
 		recipeYield: asString(payload.recipeYield ?? payload.recipeServings),
 		sourceUrl: textFrom(payload.orgURL, payload.originalUrl, payload.sourceUrl),
 		steps,
+		tools,
 	};
 };
 

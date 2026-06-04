@@ -158,6 +158,7 @@
 
   .section-heading h1,
   .ingredients-region h2,
+  .tools-region h2,
   .search-panel__header h2 {
     @apply m-0 text-xl font-semibold leading-tight text-ink;
   }
@@ -622,6 +623,22 @@
     @apply max-h-[calc(100vh-2rem)] overflow-auto;
   }
 
+  .tools-region {
+    @apply mb-4 border-b border-line pb-4;
+  }
+
+  .tools-region__header {
+    @apply mb-3 flex items-center justify-between gap-3;
+  }
+
+  .tools-region__header div {
+    @apply flex min-w-0 items-center gap-2;
+  }
+
+  .tools-region__header svg {
+    @apply shrink-0 text-accent;
+  }
+
   .ingredients-region__header {
     @apply mb-3 flex items-center justify-between gap-3 border-b border-line pb-3;
   }
@@ -629,6 +646,29 @@
   .ingredients-region__header span {
     @apply rounded-full border border-line px-2.5 py-1 text-xs font-semibold text-muted;
     background: var(--subtle-bg);
+  }
+
+  .tools-region__header > span {
+    @apply mb-0 rounded-full border border-line px-2.5 py-1 text-xs font-semibold text-muted;
+    background: var(--subtle-bg);
+  }
+
+  .tool-list {
+    @apply m-0 flex list-none flex-wrap gap-2 p-0;
+  }
+
+  .tool-chip {
+    @apply inline-flex min-h-9 min-w-0 items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-ink;
+    background: var(--panel-solid);
+  }
+
+  .tool-chip svg {
+    @apply shrink-0 text-accent;
+  }
+
+  .tool-chip span {
+    @apply min-w-0;
+    overflow-wrap: anywhere;
   }
 
   .ingredient-row {

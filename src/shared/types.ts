@@ -25,12 +25,19 @@ export type RecipeStep = {
 	linkedIngredientKeys: string[];
 };
 
+export type RecipeTool = {
+	key: string;
+	name: string;
+	slug?: string;
+};
+
 export type RecipeDetail = RecipeSummary & {
 	recipeYield?: string;
 	prepTime?: string;
 	cookTime?: string;
 	ingredients: RecipeIngredient[];
 	steps: RecipeStep[];
+	tools: RecipeTool[];
 	sourceUrl?: string;
 };
 
