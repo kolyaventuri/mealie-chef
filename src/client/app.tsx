@@ -430,6 +430,9 @@ const CookingPage = ({onToggleTheme, theme}: CookingPageProps) => {
 	const [isConnected, setIsConnected] = useState(false);
 	const [hasAutoHiddenSetup, setHasAutoHiddenSetup] = useState(false);
 	const [isSetupPanelHidden, setIsSetupPanelHidden] = useState(false);
+	const [collapsedStepIndexes, setCollapsedStepIndexes] = useState(
+		() => new Set<number>(),
+	);
 	const [error, setError] = useState<string>();
 	const socketRef = useRef<WebSocket | undefined>(null);
 	const copyText = useMemo(() => `${globalThis.location.origin}/session`, []);
@@ -501,6 +504,10 @@ const CookingPage = ({onToggleTheme, theme}: CookingPageProps) => {
 	}, [session?.recipeSlug]);
 
 	useEffect(() => {
+		setCollapsedStepIndexes(new Set());
+	}, [session?.recipeSlug]);
+
+	useEffect(() => {
 		const socket = new WebSocket(globalWebsocketUrl());
 		socketRef.current = socket;
 
@@ -561,6 +568,23 @@ const CookingPage = ({onToggleTheme, theme}: CookingPageProps) => {
 
 		setSession(await api.patchGlobalSession(patch));
 	};
+
+	const setStepCollapsed = useCallback(
+		(stepIndex: number, isCollapsed: boolean) => {
+			setCollapsedStepIndexes((currentIndexes) => {
+				const nextIndexes = new Set(currentIndexes);
+
+				if (isCollapsed) {
+					nextIndexes.add(stepIndex);
+				} else {
+					nextIndexes.delete(stepIndex);
+				}
+
+				return nextIndexes;
+			});
+		},
+		[],
+	);
 
 	if (!session || !recipe) {
 		return (
@@ -718,7 +742,12 @@ const CookingPage = ({onToggleTheme, theme}: CookingPageProps) => {
 							<ChevronRight aria-hidden="true" size={20} />
 						</button>
 					</div>
-					<StepStack activeIndex={activeStepIndex} steps={recipe.steps} />
+					<StepStack
+						activeIndex={activeStepIndex}
+						collapsedStepIndexes={collapsedStepIndexes}
+						steps={recipe.steps}
+						onCollapsedStepChange={setStepCollapsed}
+					/>
 				</section>
 
 				<aside className="ingredients-region">

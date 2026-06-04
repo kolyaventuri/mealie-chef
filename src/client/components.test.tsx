@@ -3,7 +3,7 @@
 import {fireEvent, render, screen} from '@testing-library/react';
 import {describe, expect, it, vi} from 'vitest';
 import {FormattedContent} from './formatted-content';
-import {IngredientList, WeekPlanner} from './components';
+import {IngredientList, StepStack, WeekPlanner} from './components';
 
 describe('client components', () => {
 	it('renders week planner recipes and starts a selected recipe', () => {
@@ -55,6 +55,61 @@ describe('client components', () => {
 		expect(document.querySelector('script')).not.toBeInTheDocument();
 		expect(document.querySelector('br')).toBeInTheDocument();
 		expect(document.querySelector('table')).toBeInTheDocument();
+	});
+
+	it('collapses and restores visible recipe steps', () => {
+		const onCollapsedStepChange = vi.fn();
+
+		const {rerender} = render(
+			<StepStack
+				activeIndex={0}
+				collapsedStepIndexes={new Set()}
+				steps={[
+					{
+						index: 0,
+						linkedIngredientKeys: [],
+						text: 'Chop onions.',
+						title: 'Prep',
+					},
+					{
+						index: 1,
+						linkedIngredientKeys: [],
+						text: 'Simmer sauce.',
+					},
+				]}
+				onCollapsedStepChange={onCollapsedStepChange}
+			/>,
+		);
+
+		fireEvent.click(screen.getByRole('button', {name: 'Collapse step 1'}));
+		expect(onCollapsedStepChange).toHaveBeenCalledWith(0, true);
+
+		rerender(
+			<StepStack
+				activeIndex={0}
+				collapsedStepIndexes={new Set([0])}
+				steps={[
+					{
+						index: 0,
+						linkedIngredientKeys: [],
+						text: 'Chop onions.',
+						title: 'Prep',
+					},
+					{
+						index: 1,
+						linkedIngredientKeys: [],
+						text: 'Simmer sauce.',
+					},
+				]}
+				onCollapsedStepChange={onCollapsedStepChange}
+			/>,
+		);
+
+		expect(screen.getByText('Prep')).toBeInTheDocument();
+		expect(screen.queryByText('Chop onions.')).not.toBeInTheDocument();
+
+		fireEvent.click(screen.getByRole('button', {name: 'Show step 1'}));
+		expect(onCollapsedStepChange).toHaveBeenCalledWith(0, false);
 	});
 
 	it('supports checking ingredients and displaying source notes', () => {

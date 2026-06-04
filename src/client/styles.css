@@ -472,8 +472,29 @@
       var(--shadow-panel);
   }
 
+  .step-panel.is-collapsed {
+    @apply opacity-80;
+  }
+
   .step-panel__header {
     @apply mb-3 flex flex-wrap gap-2 text-sm text-muted;
+  }
+
+  .step-panel.is-collapsed .step-panel__header {
+    @apply mb-0;
+  }
+
+  .step-panel__toggle {
+    @apply flex min-h-8 w-full min-w-0 items-center gap-2 text-left text-sm text-muted;
+    background: transparent;
+  }
+
+  .step-panel__toggle svg {
+    @apply ml-auto shrink-0 text-muted transition;
+  }
+
+  .step-panel__toggle:hover svg {
+    @apply text-accent;
   }
 
   .step-panel__header span {
@@ -481,7 +502,8 @@
   }
 
   .step-panel__header strong {
-    @apply font-semibold text-ink;
+    @apply min-w-0 font-semibold text-ink;
+    overflow-wrap: anywhere;
   }
 
   .formatted-step {

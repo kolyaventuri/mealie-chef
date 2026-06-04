@@ -1,4 +1,11 @@
-import {CheckCircle2, Circle, Play, Search} from 'lucide-react';
+import {
+	CheckCircle2,
+	ChevronDown,
+	ChevronRight,
+	Circle,
+	Play,
+	Search,
+} from 'lucide-react';
 import type {
 	IngredientState,
 	MealPlanEntry,
@@ -169,28 +176,59 @@ export const RecipeSearch = ({
 
 export type StepStackProps = {
 	activeIndex: number;
+	collapsedStepIndexes: Set<number>;
+	onCollapsedStepChange(stepIndex: number, isCollapsed: boolean): void;
 	steps: RecipeStep[];
 };
 
-export const StepStack = ({activeIndex, steps}: StepStackProps) => {
+export const StepStack = ({
+	activeIndex,
+	collapsedStepIndexes,
+	onCollapsedStepChange,
+	steps,
+}: StepStackProps) => {
 	const visibleSteps = steps.filter(
 		(step) => Math.abs(step.index - activeIndex) <= 1,
 	);
 
 	return (
 		<div className="step-stack" aria-label="Recipe steps">
-			{visibleSteps.map((step) => (
-				<article
-					className={`step-panel ${step.index === activeIndex ? 'is-active' : ''}`}
-					key={step.index}
-				>
-					<header className="step-panel__header">
-						<span>Step {step.index + 1}</span>
-						{step.title ? <strong>{step.title}</strong> : null}
-					</header>
-					<FormattedContent className="formatted-step" markdown={step.text} />
-				</article>
-			))}
+			{visibleSteps.map((step) => {
+				const isCollapsed = collapsedStepIndexes.has(step.index);
+
+				return (
+					<article
+						className={`step-panel ${step.index === activeIndex ? 'is-active' : ''} ${isCollapsed ? 'is-collapsed' : ''}`}
+						key={step.index}
+					>
+						<header className="step-panel__header">
+							<button
+								aria-expanded={!isCollapsed}
+								aria-label={`${isCollapsed ? 'Show' : 'Collapse'} step ${step.index + 1}`}
+								className="step-panel__toggle"
+								type="button"
+								onClick={() => {
+									onCollapsedStepChange(step.index, !isCollapsed);
+								}}
+							>
+								<span>Step {step.index + 1}</span>
+								{step.title ? <strong>{step.title}</strong> : null}
+								{isCollapsed ? (
+									<ChevronRight aria-hidden="true" size={18} />
+								) : (
+									<ChevronDown aria-hidden="true" size={18} />
+								)}
+							</button>
+						</header>
+						{isCollapsed ? null : (
+							<FormattedContent
+								className="formatted-step"
+								markdown={step.text}
+							/>
+						)}
+					</article>
+				);
+			})}
 		</div>
 	);
 };
