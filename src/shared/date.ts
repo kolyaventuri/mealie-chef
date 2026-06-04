@@ -1,13 +1,42 @@
 import type {ISODate} from './types';
 
-const dateFormatter = new Intl.DateTimeFormat('en-CA', {
+const dateFormatterOptions = {
 	day: '2-digit',
 	month: '2-digit',
 	year: 'numeric',
-});
+} as const;
 
-export const toISODate = (date: Date): ISODate =>
-	dateFormatter.format(date) as ISODate;
+const formatUTCDate = (date: Date): ISODate =>
+	[
+		date.getUTCFullYear(),
+		String(date.getUTCMonth() + 1).padStart(2, '0'),
+		String(date.getUTCDate()).padStart(2, '0'),
+	].join('-') as ISODate;
+
+const parseUTCDate = (value: ISODate): Date => {
+	const [year, month, day] = value.split('-').map(Number);
+
+	return new Date(Date.UTC(year, month - 1, day));
+};
+
+const addDaysToISODate = (date: ISODate, days: number): ISODate => {
+	const next = parseUTCDate(date);
+	next.setUTCDate(next.getUTCDate() + days);
+
+	return formatUTCDate(next);
+};
+
+export const toISODate = (date: Date, timeZone?: string): ISODate => {
+	const parts = new Intl.DateTimeFormat('en-US', {
+		...dateFormatterOptions,
+		...(timeZone ? {timeZone} : {}),
+	}).formatToParts(date);
+	const values = Object.fromEntries(
+		parts.map((part) => [part.type, part.value]),
+	) as Record<string, string>;
+
+	return `${values.year}-${values.month}-${values.day}` as ISODate;
+};
 
 export const parseISODate = (value: string): Date => {
 	const [year, month, day] = value.split('-').map(Number);
@@ -33,25 +62,25 @@ export const startOfWeek = (date: Date): Date => {
 
 export const getWeekRange = (
 	now = new Date(),
+	timeZone?: string,
 ): {start: ISODate; end: ISODate; today: ISODate} => {
-	const start = startOfWeek(now);
-	const end = addDays(start, 6);
+	const today = toISODate(now, timeZone);
+	const start = addDaysToISODate(today, -parseUTCDate(today).getUTCDay());
 
 	return {
-		end: toISODate(end),
-		start: toISODate(start),
-		today: toISODate(now),
+		end: addDaysToISODate(start, 6),
+		start,
+		today,
 	};
 };
 
 export const getDateRange = (start: ISODate, end: ISODate): ISODate[] => {
 	const dates: ISODate[] = [];
-	let cursor = parseISODate(start);
-	const last = parseISODate(end);
+	let cursor = start;
 
-	while (cursor <= last) {
-		dates.push(toISODate(cursor));
-		cursor = addDays(cursor, 1);
+	while (cursor <= end) {
+		dates.push(cursor);
+		cursor = addDaysToISODate(cursor, 1);
 	}
 
 	return dates;

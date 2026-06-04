@@ -216,7 +216,7 @@ export const createApp = async ({
 
 	app.get('/api/planner/week', async (request) => {
 		const query = bodyAsRecord(request.query);
-		const range = getWeekRange();
+		const range = getWeekRange(new Date(), config.appTimeZone);
 		const start = (
 			typeof query.start === 'string' ? query.start : range.start
 		) as ISODate;

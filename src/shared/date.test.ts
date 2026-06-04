@@ -10,6 +10,16 @@ describe('date helpers', () => {
 		});
 	});
 
+	it('builds week ranges from the configured app time zone', () => {
+		expect(
+			getWeekRange(new Date('2026-06-04T02:00:00.000Z'), 'America/Phoenix'),
+		).toEqual({
+			end: '2026-06-06',
+			start: '2026-05-31',
+			today: '2026-06-03',
+		});
+	});
+
 	it('enumerates inclusive date ranges', () => {
 		expect(getDateRange('2026-06-01', '2026-06-03')).toEqual([
 			'2026-06-01',

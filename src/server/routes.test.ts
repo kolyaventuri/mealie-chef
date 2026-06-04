@@ -95,6 +95,8 @@ describe('routes', () => {
 	const sockets: WebSocket[] = [];
 
 	afterEach(async () => {
+		vi.useRealTimers();
+
 		for (const socket of sockets.splice(0)) {
 			socket.close();
 		}
@@ -162,6 +164,41 @@ describe('routes', () => {
 		expect(patchResponse.json().session).toMatchObject({
 			activeStepIndex: 1,
 			revision: 1,
+		});
+	});
+
+	it('marks today using the configured app timezone', async () => {
+		vi.useFakeTimers({toFake: ['Date']});
+		vi.setSystemTime(new Date('2026-06-04T02:00:00.000Z'));
+
+		const app = await createApp({
+			config: {
+				...config,
+				appTimeZone: 'America/Phoenix',
+			},
+			mealieClient: createMockMealie(),
+			sessionStore: new SessionStore(':memory:'),
+		});
+		apps.push(app);
+
+		const response = await app.inject('/api/planner/week');
+		const body: {
+			days: Array<{date: string; isToday: boolean}>;
+			end: string;
+			start: string;
+			today: string;
+		} = response.json();
+
+		expect(body).toMatchObject({
+			end: '2026-06-06',
+			start: '2026-05-31',
+			today: '2026-06-03',
+		});
+		expect(body.days.find((day) => day.date === '2026-06-03')).toMatchObject({
+			isToday: true,
+		});
+		expect(body.days.find((day) => day.date === '2026-06-04')).toMatchObject({
+			isToday: false,
 		});
 	});
 
