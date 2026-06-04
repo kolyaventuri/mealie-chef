@@ -394,8 +394,7 @@
     @apply p-4;
   }
 
-  .session-panel,
-  .ingredients-region {
+  .session-panel {
     @apply sticky top-4;
   }
 
@@ -619,10 +618,6 @@
     background: var(--subtle-bg);
   }
 
-  .ingredients-region {
-    @apply max-h-[calc(100vh-2rem)] overflow-auto;
-  }
-
   .tools-region {
     @apply mb-4 border-b border-line pb-4;
   }
@@ -776,10 +771,8 @@
     grid-template-columns: 1fr;
   }
 
-  .session-panel,
-  .ingredients-region {
+  .session-panel {
     position: static;
-    max-height: none;
   }
 
   .session-panel {
