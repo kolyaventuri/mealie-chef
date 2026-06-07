@@ -1,3 +1,6 @@
+import {mkdtempSync, rmSync} from 'node:fs';
+import path from 'node:path';
+import {tmpdir} from 'node:os';
 import {describe, expect, it} from 'vitest';
 import {SessionStore} from './session-store';
 
@@ -78,5 +81,46 @@ describe('SessionStore', () => {
 			recipeSlug: 'rice',
 		});
 		store.close();
+	});
+
+	it('persists the current global session and progress across restarts', () => {
+		const directory = mkdtempSync(path.join(tmpdir(), 'mealie-session-store-'));
+		const databasePath = path.join(directory, 'sessions.sqlite');
+
+		try {
+			const store = new SessionStore(databasePath);
+			const session = store.createGlobalSession({
+				ingredientKeys: ['ingredient:rice', 'ingredient:salt'],
+				recipeName: 'Rice',
+				recipeSlug: 'rice',
+			});
+
+			store.applyPatch(session.id, {
+				activeStepIndex: 2,
+				type: 'set-active-step',
+			});
+			store.applyPatch(session.id, {
+				checked: true,
+				ingredientKey: 'ingredient:salt',
+				type: 'set-ingredient-checked',
+			});
+			store.close();
+
+			const restartedStore = new SessionStore(databasePath);
+			const restartedSession = restartedStore.getGlobalSession();
+
+			expect(restartedSession).toMatchObject({
+				activeStepIndex: 2,
+				id: session.id,
+				recipeSlug: 'rice',
+				revision: 2,
+			});
+			expect(
+				restartedSession?.ingredientStates['ingredient:salt']?.checked,
+			).toBe(true);
+			restartedStore.close();
+		} finally {
+			rmSync(directory, {force: true, recursive: true});
+		}
 	});
 });
