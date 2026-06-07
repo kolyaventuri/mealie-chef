@@ -293,6 +293,36 @@ describe('routes', () => {
 		});
 	});
 
+	it('sends websocket heartbeats while clients are connected', async () => {
+		const app = await createApp({
+			config,
+			mealieClient: createMockMealie(),
+			sessionStore: new SessionStore(':memory:'),
+			websocketHeartbeatIntervalMs: 10,
+		});
+		apps.push(app);
+		await app.listen({host: '127.0.0.1', port: 0});
+
+		const sessionResponse = await app.inject({
+			body: {
+				recipeSlug: recipe.slug,
+			},
+			method: 'POST',
+			url: '/api/global-session',
+		});
+		expect(sessionResponse.statusCode).toBe(200);
+		const address = app.server.address() as AddressInfo;
+		const socket = new WebSocket(`ws://127.0.0.1:${address.port}/ws`);
+		sockets.push(socket);
+
+		await waitForMessage(socket, (message) => message.type === 'snapshot');
+		await expect(
+			waitForMessage(socket, (message) => message.type === 'heartbeat'),
+		).resolves.toEqual({
+			type: 'heartbeat',
+		});
+	});
+
 	it('does not serve the SPA fallback for a non-upgraded /ws request', async () => {
 		const app = await createApp({
 			config,

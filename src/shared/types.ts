@@ -120,6 +120,10 @@ export type SessionErrorMessage = {
 	message: string;
 };
 
+export type SessionHeartbeatMessage = {
+	type: 'heartbeat';
+};
+
 export type ClientSessionMessage = {
 	type: 'patch';
 	patch: SessionMutation;
@@ -129,4 +133,5 @@ export type ServerSessionMessage =
 	| SessionSnapshotMessage
 	| SessionPatchMessage
 	| SessionPresenceMessage
-	| SessionErrorMessage;
+	| SessionErrorMessage
+	| SessionHeartbeatMessage;

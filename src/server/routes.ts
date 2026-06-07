@@ -1,6 +1,7 @@
 import {Buffer} from 'node:buffer';
 import fs from 'node:fs';
 import process from 'node:process';
+import {clearInterval, setInterval} from 'node:timers';
 import fastifyStatic from '@fastify/static';
 import fastifyWebsocket from '@fastify/websocket';
 import cors from '@fastify/cors';
@@ -32,9 +33,11 @@ export type AppDependencies = {
 	config: AppConfig;
 	mealieClient?: MealieClient;
 	sessionStore?: SessionStore;
+	websocketHeartbeatIntervalMs?: number;
 };
 
 const openState = 1;
+const defaultWebsocketHeartbeatIntervalMs = 25_000;
 
 const serialize = (message: ServerSessionMessage): string =>
 	JSON.stringify(message);
@@ -141,6 +144,19 @@ const sendGlobalPresence = (sockets: Set<WebSocketLike>): void => {
 	});
 };
 
+const sendHeartbeat = (
+	clients: Map<string, Set<WebSocketLike>>,
+	globalClients: Set<WebSocketLike>,
+): void => {
+	const message: ServerSessionMessage = {type: 'heartbeat'};
+
+	sendToSockets(globalClients, message);
+
+	for (const sockets of clients.values()) {
+		sendToSockets(sockets, message);
+	}
+};
+
 const isApiOrRealtimePath = (url: string): boolean =>
 	url === '/ws' || url.startsWith('/api/') || url.startsWith('/ws/');
 
@@ -169,6 +185,7 @@ export const createApp = async ({
 	config,
 	mealieClient,
 	sessionStore,
+	websocketHeartbeatIntervalMs = defaultWebsocketHeartbeatIntervalMs,
 }: AppDependencies): Promise<FastifyInstance> => {
 	const app = fastify({
 		logger: {
@@ -191,8 +208,20 @@ export const createApp = async ({
 	const store = sessionStore ?? new SessionStore(config.databasePath);
 	const clients = new Map<string, Set<WebSocketLike>>();
 	const globalClients = new Set<WebSocketLike>();
+	const websocketHeartbeatTimer =
+		websocketHeartbeatIntervalMs > 0
+			? setInterval(() => {
+					sendHeartbeat(clients, globalClients);
+				}, websocketHeartbeatIntervalMs)
+			: undefined;
+
+	websocketHeartbeatTimer?.unref();
 
 	app.addHook('onClose', async () => {
+		if (websocketHeartbeatTimer) {
+			clearInterval(websocketHeartbeatTimer);
+		}
+
 		store.close();
 	});
 

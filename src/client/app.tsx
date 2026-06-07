@@ -33,6 +33,8 @@ import {
 	WeekPlanner,
 } from './components';
 
+const websocketReconnectDelayMs = 1500;
+
 type Route =
 	| {
 			name: 'planner';
@@ -509,39 +511,85 @@ const CookingPage = ({onToggleTheme, theme}: CookingPageProps) => {
 	}, [session?.recipeSlug]);
 
 	useEffect(() => {
-		const socket = new WebSocket(globalWebsocketUrl());
-		socketRef.current = socket;
+		let isMounted = true;
+		let reconnectTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
 
-		socket.addEventListener('open', () => {
-			setIsConnected(true);
-		});
-		socket.addEventListener('close', () => {
-			setIsConnected(false);
-		});
-		socket.addEventListener('message', (event) => {
-			const message = JSON.parse(event.data as string) as ServerSessionMessage;
+		const connect = (): void => {
+			const socket = new WebSocket(globalWebsocketUrl());
+			socketRef.current = socket;
 
-			if (message.type === 'snapshot') {
-				setSession(message.session);
-				setError(undefined);
-			}
+			socket.addEventListener('open', () => {
+				if (socketRef.current === socket) {
+					setIsConnected(true);
+				}
+			});
+			socket.addEventListener('close', () => {
+				if (socketRef.current !== socket) {
+					return;
+				}
 
-			if (message.type === 'patch') {
-				setSession(message.session);
-				setError(undefined);
-			}
+				socketRef.current = undefined;
+				setIsConnected(false);
 
-			if (message.type === 'presence') {
-				setPresence(message.count);
-			}
+				if (!isMounted || reconnectTimer) {
+					return;
+				}
 
-			if (message.type === 'error') {
-				setError(message.message);
-			}
-		});
+				reconnectTimer = globalThis.setTimeout(() => {
+					reconnectTimer = undefined;
+					connect();
+				}, websocketReconnectDelayMs);
+			});
+			socket.addEventListener('error', () => {
+				if (
+					socketRef.current === socket &&
+					socket.readyState !== WebSocket.CLOSED &&
+					socket.readyState !== WebSocket.CLOSING
+				) {
+					socket.close();
+				}
+			});
+			socket.addEventListener('message', (event) => {
+				if (socketRef.current !== socket) {
+					return;
+				}
+
+				const message = JSON.parse(
+					event.data as string,
+				) as ServerSessionMessage;
+
+				if (message.type === 'snapshot') {
+					setSession(message.session);
+					setError(undefined);
+				}
+
+				if (message.type === 'patch') {
+					setSession(message.session);
+					setError(undefined);
+				}
+
+				if (message.type === 'presence') {
+					setPresence(message.count);
+				}
+
+				if (message.type === 'error') {
+					setError(message.message);
+				}
+			});
+		};
+
+		connect();
 
 		return () => {
-			socket.close();
+			isMounted = false;
+
+			if (reconnectTimer) {
+				globalThis.clearTimeout(reconnectTimer);
+			}
+
+			const socket = socketRef.current;
+			socketRef.current = undefined;
+			socket?.close();
 		};
 	}, []);
 
