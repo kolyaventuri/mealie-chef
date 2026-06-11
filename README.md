@@ -17,6 +17,14 @@ screens on the same recipe step with synced ingredient checkoffs.
 - Cook mode using the browser Screen Wake Lock API when available.
 - Light and dark themes.
 
+## Screenshots
+
+![Weekly meal planner in dark mode on an iPad landscape viewport](docs/screenshots/ipad-landscape-planner-dark.jpg)
+
+![Cooking session setup view with QR code sharing in dark mode](docs/screenshots/ipad-landscape-cooking-setup-dark.jpg)
+
+![Focused cooking view with synced step controls and ingredients in dark mode](docs/screenshots/ipad-landscape-cooking-focus-dark.jpg)
+
 ## Stack
 
 - React 19, Vite, and Tailwind CSS for the iPad UI.
