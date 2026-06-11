@@ -1,5 +1,5 @@
 {
-  "name": "mealie-ipad-sync",
+  "name": "mealie-chef",
   "version": "1.0.0",
   "description": "LAN-hosted synchronized Mealie cooking display for two iPads.",
   "main": "dist/server/index.js",
