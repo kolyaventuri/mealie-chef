@@ -1,0 +1,247 @@
+# Setup Guide
+
+This guide covers local development, LAN testing on iPads, production serving,
+Docker, Dokku, persistence, and common failure modes.
+
+## Requirements
+
+- Node.js 24 LTS or another supported Node release. The application uses Node's
+  built-in SQLite support, and the production Docker image uses
+  `node:24-alpine`.
+- pnpm 10.x. Use the shell-configured Node version, then enable pnpm with
+  Corepack if needed.
+- A Mealie instance reachable from this app.
+- A Mealie API token with access to recipes and household meal plans.
+
+Check your local versions:
+
+```sh
+node -v
+pnpm -v
+```
+
+If `node -v` is below `v24`, upgrade before installing dependencies. Prefer
+Node 24 LTS for parity with the production image.
+
+## Configuration
+
+Copy the example environment file:
+
+```sh
+cp .env.example .env
+```
+
+Set these variables in `.env` for local use, or in the process environment for
+production:
+
+| Variable | Required | Default | Notes |
+| --- | --- | --- | --- |
+| `MEALIE_BASE_URL` | Yes | none | Base URL for Mealie, such as `https://mealie.example.com`. Trailing slashes are stripped. |
+| `MEALIE_API_TOKEN` | Yes | none | Bearer token sent to Mealie. Do not commit it. |
+| `PORT` | No | `3100` | Fastify server port. |
+| `APP_TIME_ZONE` | No | host default | IANA time zone used to decide planner `Today`, such as `America/Phoenix`. Set this explicitly in production. |
+| `DATABASE_PATH` | No | `data/mealie-ipad-sync.sqlite` | SQLite database path. Parent directories are created automatically. |
+| `SESSION_MAX_AGE_HOURS` | No | `6` | Maximum age, based on `sessions.updated_at`, before the global session pointer stops auto-resuming. Historical rows are not deleted. |
+| `LOG_LEVEL` | No | `info` | Fastify logger level. |
+
+The app will start without Mealie credentials, but Mealie-backed routes return
+`503` until `MEALIE_BASE_URL` and `MEALIE_API_TOKEN` are set.
+
+## Local Development
+
+Install dependencies:
+
+```sh
+pnpm install
+```
+
+Run the client and server in watch mode:
+
+```sh
+pnpm dev
+```
+
+Development mode starts:
+
+- Vite client: `http://localhost:5173`
+- Fastify API and WebSockets: `http://localhost:3100`
+
+In this mode, the browser client sends API requests to
+`http://localhost:3100`. Use it from the same machine. For iPad testing, use the
+production serving flow below so requests and WebSockets stay on the same LAN
+origin.
+
+## LAN iPad Testing
+
+Build and run the production server:
+
+```sh
+pnpm build
+pnpm start
+```
+
+Find the Mac's LAN address, for example on Wi-Fi:
+
+```sh
+ipconfig getifaddr en0
+```
+
+Open `http://<lan-ip>:3100` on the first iPad, start a recipe from the planner
+or recipe search, then open `http://<lan-ip>:3100/session` on the second iPad.
+The setup panel on the cooking screen also provides a QR code and copyable link.
+
+If the iPads cannot connect, check that the Mac and iPads are on the same
+network and that macOS firewall settings allow inbound connections to Node.
+
+## Production Build
+
+Build client and server:
+
+```sh
+pnpm build
+```
+
+Run the built server:
+
+```sh
+pnpm start
+```
+
+`pnpm start` serves static files from `dist/client`, API routes under `/api`,
+and WebSockets under `/ws`. Any non-API route falls back to `index.html`, so
+`/` and `/session` can both be loaded directly.
+
+## Docker
+
+Build the image:
+
+```sh
+docker build -t mealie-ipad-sync .
+```
+
+Run it with an env file and persistent SQLite storage:
+
+```sh
+docker run --rm \
+  --env-file .env \
+  -p 3100:3100 \
+  -v "$PWD/data:/app/data" \
+  mealie-ipad-sync
+```
+
+The container defaults to `PORT=3100` and `DATABASE_PATH=data/mealie-ipad-sync.sqlite`,
+which resolves to `/app/data/mealie-ipad-sync.sqlite` in the image.
+
+## Dokku
+
+The existing deployment for this repo has used the Dokku app name `chef`.
+Replace `chef` if you are creating a separate deployment.
+
+Create the app and persistent storage:
+
+```sh
+dokku apps:create chef
+dokku storage:ensure-directory chef
+dokku storage:mount chef /var/lib/dokku/data/storage/chef:/app/data
+```
+
+Set configuration without printing secrets in logs or committed files:
+
+```sh
+dokku config:set chef \
+  MEALIE_BASE_URL=https://mealie.example.com \
+  MEALIE_API_TOKEN=replace-with-real-token \
+  APP_TIME_ZONE=America/Phoenix \
+  SESSION_MAX_AGE_HOURS=6
+```
+
+Deploy:
+
+```sh
+git remote add dokku dokku@<dokku-host>:chef
+git push dokku main
+```
+
+For the existing `chef` deployment, the host database path is expected to be:
+
+```text
+/var/lib/dokku/data/storage/chef/mealie-ipad-sync.sqlite
+```
+
+Inside the container it is:
+
+```text
+/app/data/mealie-ipad-sync.sqlite
+```
+
+## Persistence and Backups
+
+SQLite stores three main tables:
+
+- `sessions`: recipe slug, name, active step, revision, and update timestamps.
+- `ingredient_checks`: per-session ingredient checked state.
+- `app_state`: app-level state, including the `global_session_id` pointer.
+
+The current shared cooking session is only the `app_state.global_session_id`
+pointer. When `SESSION_MAX_AGE_HOURS` expires, the app clears that pointer on
+read and stops auto-resuming the old session. It does not delete `sessions` or
+`ingredient_checks`.
+
+Back up the database and its WAL sidecar files together when possible:
+
+```text
+data/mealie-ipad-sync.sqlite
+data/mealie-ipad-sync.sqlite-shm
+data/mealie-ipad-sync.sqlite-wal
+```
+
+When inspecting the database on a server, use `sqlite3`, not the legacy `sqlite`
+binary:
+
+```sh
+sqlite3 /var/lib/dokku/data/storage/chef/mealie-ipad-sync.sqlite '.tables'
+```
+
+## Useful Routes
+
+- `/`: planner and recipe search.
+- `/session`: current global cooking session.
+- `/api/planner/week`: current week planner data.
+- `/api/recipes?query=...`: Mealie recipe search.
+- `/api/recipes/:slug`: normalized recipe detail.
+- `/api/global-session`: current shared cooking session.
+- `/ws`: global cooking-session WebSocket.
+- `/ws/sessions/:sessionId`: direct session WebSocket.
+
+## Troubleshooting
+
+`Mealie is not configured. Set MEALIE_BASE_URL and MEALIE_API_TOKEN.`
+
+Set both required Mealie variables and restart the server.
+
+`No recipe is active yet. Start one from the planner.`
+
+Open `/`, start a recipe from the weekly planner or recipe search, then join
+`/session` on the other iPad.
+
+Planner `Today` is wrong.
+
+Set `APP_TIME_ZONE` to the kitchen's IANA time zone, for example
+`America/Phoenix`, then restart.
+
+The page loads on an iPad but API calls or sync fail.
+
+Use the production serving flow for LAN testing: `pnpm build` then `pnpm start`,
+and open `http://<lan-ip>:3100`. The Vite dev client is intended for the same
+machine because it points API calls at `localhost:3100`.
+
+WebSockets connect and then drop later.
+
+The server sends heartbeat messages every 25 seconds and the client reconnects
+automatically. If drops still happen in production, check reverse proxy or
+platform idle timeouts and make sure `/ws` supports WebSocket upgrades.
+
+SQLite says the file is encrypted or is not a database.
+
+Confirm you are using `sqlite3` and inspecting the mounted database path, not
+the older `sqlite` binary or an empty file outside the persistent mount.
