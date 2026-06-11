@@ -208,6 +208,8 @@ export const createApp = async ({
 	const store = sessionStore ?? new SessionStore(config.databasePath);
 	const clients = new Map<string, Set<WebSocketLike>>();
 	const globalClients = new Set<WebSocketLike>();
+	const getCurrentGlobalSession = (): CookingSession | undefined =>
+		store.getGlobalSession({maxAgeMs: config.sessionMaxAgeMs});
 	const websocketHeartbeatTimer =
 		websocketHeartbeatIntervalMs > 0
 			? setInterval(() => {
@@ -325,7 +327,7 @@ export const createApp = async ({
 	});
 
 	app.get('/api/global-session', async () => ({
-		session: store.getGlobalSession() ?? null,
+		session: getCurrentGlobalSession() ?? null,
 	}));
 
 	app.post('/api/global-session', async (request) => {
@@ -349,7 +351,7 @@ export const createApp = async ({
 	});
 
 	app.patch('/api/global-session', async (request) => {
-		const globalSession = store.getGlobalSession();
+		const globalSession = getCurrentGlobalSession();
 
 		if (!globalSession) {
 			throw new HttpError(404, 'No global cooking session has been started.');
@@ -477,7 +479,7 @@ export const createApp = async ({
 	const handleGlobalWebsocket = (socket: WebSocketLike): void => {
 		globalClients.add(socket);
 
-		const session = store.getGlobalSession();
+		const session = getCurrentGlobalSession();
 
 		if (session) {
 			socket.send(
@@ -499,7 +501,7 @@ export const createApp = async ({
 
 		socket.on('message', (data) => {
 			try {
-				const session = store.getGlobalSession();
+				const session = getCurrentGlobalSession();
 
 				if (!session) {
 					throw new HttpError(

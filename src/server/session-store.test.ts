@@ -1,10 +1,16 @@
 import {mkdtempSync, rmSync} from 'node:fs';
 import path from 'node:path';
 import {tmpdir} from 'node:os';
-import {describe, expect, it} from 'vitest';
+import {afterEach, describe, expect, it, vi} from 'vitest';
 import {SessionStore} from './session-store';
 
+const hourMs = 60 * 60 * 1000;
+
 describe('SessionStore', () => {
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
 	it('creates sessions with reset checkoffs', () => {
 		const store = new SessionStore(':memory:');
 		const firstSession = store.createSession({
@@ -122,5 +128,31 @@ describe('SessionStore', () => {
 		} finally {
 			rmSync(directory, {force: true, recursive: true});
 		}
+	});
+
+	it('expires stale global sessions without deleting historical sessions', () => {
+		vi.useFakeTimers({toFake: ['Date']});
+		vi.setSystemTime(new Date('2026-06-09T00:00:00.000Z'));
+
+		const store = new SessionStore(':memory:');
+		const session = store.createGlobalSession({
+			ingredientKeys: ['ingredient:rice'],
+			recipeName: 'Rice',
+			recipeSlug: 'rice',
+		});
+
+		vi.setSystemTime(new Date('2026-06-09T06:00:00.000Z'));
+		expect(store.getGlobalSession({maxAgeMs: 6 * hourMs})).toMatchObject({
+			id: session.id,
+		});
+
+		vi.setSystemTime(new Date('2026-06-09T06:00:00.001Z'));
+		expect(store.getGlobalSession({maxAgeMs: 6 * hourMs})).toBeUndefined();
+		expect(store.getGlobalSession()).toBeUndefined();
+		expect(store.getSession(session.id)).toMatchObject({
+			id: session.id,
+			recipeSlug: 'rice',
+		});
+		store.close();
 	});
 });

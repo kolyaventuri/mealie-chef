@@ -3,4 +3,14 @@ dist/
 coverage/
 data/
 .env
+.env.*
+!.env.example
+.history/
+.pnpm-store/
+.vite/
 .DS_Store
+*.log
+npm-debug.log*
+pnpm-debug.log*
+*.sqlite
+*.sqlite-*

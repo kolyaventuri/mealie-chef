@@ -16,6 +16,11 @@ export type CreateSessionInput = {
 	ingredientKeys: string[];
 };
 
+export type GetGlobalSessionOptions = {
+	maxAgeMs?: number;
+	now?: Date;
+};
+
 type SessionRow = {
 	active_step_index: number;
 	created_at: string;
@@ -148,7 +153,9 @@ export class SessionStore {
 		return session;
 	}
 
-	getGlobalSession(): CookingSession | undefined {
+	getGlobalSession(
+		options: GetGlobalSessionOptions = {},
+	): CookingSession | undefined {
 		const row = this.database
 			.prepare('SELECT value FROM app_state WHERE key = ?')
 			.get(globalSessionKey) as StateRow | undefined;
@@ -158,9 +165,17 @@ export class SessionStore {
 		}
 
 		try {
-			return this.getSession(row.value);
+			const session = this.getSession(row.value);
+
+			if (this.isStaleGlobalSession(session, options)) {
+				this.clearGlobalSessionId();
+				return undefined;
+			}
+
+			return session;
 		} catch (error) {
 			if (error instanceof HttpError && error.statusCode === 404) {
+				this.clearGlobalSessionId();
 				return undefined;
 			}
 
@@ -252,6 +267,29 @@ export class SessionStore {
 				'UPDATE sessions SET revision = revision + 1, updated_at = ? WHERE id = ?',
 			)
 			.run(timestamp, id);
+	}
+
+	private clearGlobalSessionId(): void {
+		this.database
+			.prepare('DELETE FROM app_state WHERE key = ?')
+			.run(globalSessionKey);
+	}
+
+	private isStaleGlobalSession(
+		session: CookingSession,
+		options: GetGlobalSessionOptions,
+	): boolean {
+		if (options.maxAgeMs === undefined) {
+			return false;
+		}
+
+		const updatedAt = Date.parse(session.updatedAt);
+
+		if (Number.isNaN(updatedAt)) {
+			return false;
+		}
+
+		return (options.now ?? new Date()).getTime() - updatedAt > options.maxAgeMs;
 	}
 
 	private assertKnownIngredient(

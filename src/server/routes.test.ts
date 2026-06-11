@@ -8,9 +8,12 @@ import {type MealieClient} from './mealie-client';
 import {createApp} from './routes';
 import {SessionStore} from './session-store';
 
+const hourMs = 60 * 60 * 1000;
+
 const config: AppConfig = {
 	databasePath: ':memory:',
 	port: 0,
+	sessionMaxAgeMs: 6 * hourMs,
 	staticRoot: '/path/that/does/not/exist',
 };
 
@@ -175,7 +178,7 @@ describe('routes', () => {
 		const app = await createApp({
 			config: {
 				...config,
-				appTimeZone: 'America/Phoenix',
+				appTimeZone: 'Etc/GMT+7',
 			},
 			mealieClient: createMockMealie(),
 			sessionStore: new SessionStore(':memory:'),
@@ -200,6 +203,53 @@ describe('routes', () => {
 		});
 		expect(body.days.find((day) => day.date === '2026-06-04')).toMatchObject({
 			isToday: false,
+		});
+	});
+
+	it('expires global sessions using the configured max age', async () => {
+		vi.useFakeTimers({toFake: ['Date']});
+		vi.setSystemTime(new Date('2026-06-09T00:00:00.000Z'));
+
+		const sessionStore = new SessionStore(':memory:');
+		const app = await createApp({
+			config: {
+				...config,
+				sessionMaxAgeMs: hourMs,
+			},
+			mealieClient: createMockMealie(),
+			sessionStore,
+		});
+		apps.push(app);
+
+		const sessionResponse = await app.inject({
+			body: {
+				recipeSlug: recipe.slug,
+			},
+			method: 'POST',
+			url: '/api/global-session',
+		});
+		expect(sessionResponse.statusCode).toBe(200);
+		const sessionId = sessionResponse.json().session.id as string;
+
+		vi.setSystemTime(new Date('2026-06-09T01:00:00.001Z'));
+
+		const globalSessionResponse = await app.inject('/api/global-session');
+		expect(globalSessionResponse.json()).toEqual({
+			session: null,
+		});
+
+		const patchResponse = await app.inject({
+			body: {
+				activeStepIndex: 1,
+				type: 'set-active-step',
+			},
+			method: 'PATCH',
+			url: '/api/global-session',
+		});
+		expect(patchResponse.statusCode).toBe(404);
+		expect(sessionStore.getSession(sessionId)).toMatchObject({
+			id: sessionId,
+			recipeSlug: recipe.slug,
 		});
 	});
 
