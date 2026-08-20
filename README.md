@@ -15,6 +15,7 @@ screens on the same recipe step with synced ingredient checkoffs.
   progress.
 - QR code and copyable session link for joining another iPad.
 - Cook mode using the browser Screen Wake Lock API when available.
+  - Must be run in an HTTPS context
 - Light and dark themes.
 - `/import` flow for URL, pasted-text, and multi-screenshot recipe imports with
   an editable review before anything is written to Mealie.
