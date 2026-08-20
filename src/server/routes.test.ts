@@ -12,6 +12,8 @@ const hourMs = 60 * 60 * 1000;
 
 const config: AppConfig = {
 	databasePath: ':memory:',
+	openAiRecipeModel: 'gpt-5.6-luna',
+	openAiRecipeReasoningEffort: 'medium',
 	port: 0,
 	sessionMaxAgeMs: 6 * hourMs,
 	staticRoot: '/path/that/does/not/exist',

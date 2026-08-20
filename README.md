@@ -16,6 +16,8 @@ screens on the same recipe step with synced ingredient checkoffs.
 - QR code and copyable session link for joining another iPad.
 - Cook mode using the browser Screen Wake Lock API when available.
 - Light and dark themes.
+- `/import` flow for URL, pasted-text, and multi-screenshot recipe imports with
+  an editable review before anything is written to Mealie.
 
 ## Screenshots
 
@@ -41,6 +43,7 @@ Requirements:
   `node:24-alpine`.
 - pnpm 10.x. This repo pins `pnpm@10.29.3` in `package.json`.
 - A reachable Mealie instance and API token.
+- An OpenAI API key when using the recipe importer.
 
 Install dependencies and create local config:
 
@@ -49,7 +52,8 @@ pnpm install
 cp .env.example .env
 ```
 
-Edit `.env` with your Mealie URL and token, then start development mode:
+Edit `.env` with your Mealie URL, token, and optional OpenAI importer settings,
+then start development mode:
 
 ```sh
 pnpm dev
@@ -83,8 +87,19 @@ pnpm typecheck    # Type-check client and server configs
 ## How It Works
 
 The planner page at `/` fetches the current Mealie week and lets you start a
-recipe from the planner or recipe search. Starting a recipe creates a global
-cooking session and navigates to `/session`.
+recipe from the planner or recipe search. The `Import recipe` action opens
+`/import`, where a URL, pasted text, or up to eight screenshots are parsed by
+OpenAI and shown in an editable preview before confirmation.
+
+The importer API is intentionally scoped to `/import/parse` and
+`/import/confirm`, so a reverse proxy or Cloudflare Access policy can protect
+the whole `/import/*` path. `OPENAI_API_KEY` and `MEALIE_API_TOKEN` never reach
+the browser. Parsed drafts remain in the browser until the user confirms the
+Mealie write. At confirmation, the final ingredient text is sent through
+Mealie's ingredient parser, which can resolve existing foods, units, and
+aliases before the structured ingredients are saved. Only lines Mealie cannot
+map may receive one batched LLM cleanup pass; the normalized lines go back
+through Mealie before any missing food or unit is created.
 
 Every iPad on `/session` joins the current global session. Step changes and
 ingredient checkoffs are written to SQLite and broadcast over WebSockets. If a
@@ -103,5 +118,6 @@ persistence, and troubleshooting notes.
 ## Security
 
 This app has no built-in user authentication. Run it on a trusted LAN or behind
-access controls. Keep `MEALIE_API_TOKEN` in environment variables or local
-`.env` files, never in committed files.
+access controls; protect `/import/*` especially because it can invoke OpenAI
+and Mealie writes. Keep `MEALIE_API_TOKEN` and `OPENAI_API_KEY` in environment
+variables or local `.env` files, never in committed files.

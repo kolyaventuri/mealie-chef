@@ -1,5 +1,6 @@
 import {describe, expect, it, vi} from 'vitest';
 import {
+	buildMealieRecipeUrl,
 	MealieClient,
 	ingredientKeyFromParts,
 	mapRecipeDetail,
@@ -155,5 +156,248 @@ describe('MealieClient mapping', () => {
 				Authorization: 'Bearer secret-token',
 			}),
 		});
+	});
+
+	it('parses ingredients through Mealie and preserves matched food and unit ids', async () => {
+		const fetcher = vi.fn(
+			async (
+				input: Parameters<typeof fetch>[0],
+				init?: Parameters<typeof fetch>[1],
+			) => {
+				const url =
+					typeof input === 'string'
+						? input
+						: input instanceof URL
+							? input.toString()
+							: input.url;
+
+				if (url.endsWith('/api/parser/ingredients')) {
+					return Response.json([
+						{
+							confidence: {average: 1},
+							input: '1/4 teaspoon lemon zest',
+							ingredient: {
+								food: {id: 'food-lemon-zest', name: 'lemon zest'},
+								quantity: 0.25,
+								unit: {id: 'unit-teaspoon', name: 'teaspoon'},
+							},
+						},
+						{
+							input: '1 garlic clove, minced',
+							ingredient: {
+								food: {id: 'food-garlic', name: 'garlic'},
+								note: 'minced',
+								quantity: 1,
+								unit: {id: 'unit-clove', name: 'clove'},
+							},
+						},
+					]);
+				}
+
+				expect(url).toBe('http://mealie.test/api/recipes/lemon-pasta');
+				expect(init).toMatchObject({method: 'PATCH'});
+
+				return new Response(null, {status: 204});
+			},
+		);
+		const client = new MealieClient({
+			apiToken: 'secret-token',
+			baseUrl: 'http://mealie.test',
+			fetcher,
+		});
+		const ingredients = ['1/4 teaspoon lemon zest', '1 garlic clove, minced'];
+
+		const parsed = await client.parseIngredients(ingredients);
+
+		expect(parsed).toEqual([
+			expect.objectContaining({
+				input: ingredients[0],
+				ingredient: expect.objectContaining({
+					food: {id: 'food-lemon-zest', name: 'lemon zest'},
+					quantity: 0.25,
+					unit: {id: 'unit-teaspoon', name: 'teaspoon'},
+				}),
+			}),
+			expect.objectContaining({
+				input: ingredients[1],
+				ingredient: expect.objectContaining({
+					food: {id: 'food-garlic', name: 'garlic'},
+					note: 'minced',
+				}),
+			}),
+		]);
+
+		await client.updateRecipeIngredients('lemon-pasta', parsed);
+
+		const parserRequest = fetcher.mock.calls[0]?.[1];
+		expect(parserRequest).toMatchObject({
+			method: 'POST',
+		});
+		expect(JSON.parse(parserRequest?.body as string)).toEqual({
+			ingredients,
+			parser: 'nlp',
+		});
+		const updateRequest = fetcher.mock.calls[1]?.[1];
+		expect(JSON.parse(updateRequest?.body as string)).toEqual({
+			recipeIngredient: [
+				{
+					food: {id: 'food-lemon-zest', name: 'lemon zest'},
+					originalText: '1/4 teaspoon lemon zest',
+					quantity: 0.25,
+					unit: {id: 'unit-teaspoon', name: 'teaspoon'},
+				},
+				{
+					food: {id: 'food-garlic', name: 'garlic'},
+					note: 'minced',
+					originalText: '1 garlic clove, minced',
+					quantity: 1,
+					unit: {id: 'unit-clove', name: 'clove'},
+				},
+			],
+		});
+	});
+
+	it('creates only unmatched food and unit references before saving', async () => {
+		const fetcher = vi.fn(
+			async (
+				input: Parameters<typeof fetch>[0],
+				init?: Parameters<typeof fetch>[1],
+			) => {
+				const url =
+					typeof input === 'string'
+						? input
+						: input instanceof URL
+							? input.toString()
+							: input.url;
+
+				if (url.endsWith('/api/parser/ingredients')) {
+					return Response.json([
+						{
+							input: '2 layers raspberry filling',
+							ingredient: {
+								food: {name: 'raspberry filling'},
+								quantity: 2,
+								unit: {name: 'layers'},
+							},
+						},
+					]);
+				}
+
+				if (url.endsWith('/api/foods')) {
+					expect(init).toMatchObject({method: 'POST'});
+
+					return Response.json({
+						id: 'food-raspberry-filling',
+						name: 'raspberry filling',
+					});
+				}
+
+				if (url.endsWith('/api/units')) {
+					expect(init).toMatchObject({method: 'POST'});
+
+					return Response.json({id: 'unit-layers', name: 'layers'});
+				}
+
+				expect(url).toBe('http://mealie.test/api/recipes/raspberry-cake');
+				expect(init).toMatchObject({method: 'PATCH'});
+
+				return new Response(null, {status: 204});
+			},
+		);
+		const client = new MealieClient({
+			apiToken: 'secret-token',
+			baseUrl: 'http://mealie.test',
+			fetcher,
+		});
+		const parsed = await client.parseIngredients([
+			'2 layers raspberry filling',
+		]);
+
+		await client.updateRecipeIngredients('raspberry-cake', parsed);
+
+		expect(JSON.parse(fetcher.mock.calls[1]?.[1]?.body as string)).toEqual({
+			name: 'raspberry filling',
+		});
+		expect(JSON.parse(fetcher.mock.calls[2]?.[1]?.body as string)).toEqual({
+			name: 'layers',
+		});
+		expect(JSON.parse(fetcher.mock.calls[3]?.[1]?.body as string)).toEqual({
+			recipeIngredient: [
+				{
+					food: {
+						id: 'food-raspberry-filling',
+						name: 'raspberry filling',
+					},
+					originalText: '2 layers raspberry filling',
+					quantity: 2,
+					unit: {id: 'unit-layers', name: 'layers'},
+				},
+			],
+		});
+	});
+
+	it('posts a Schema.org recipe to Mealie and reads the returned slug', async () => {
+		const fetcher = vi.fn(
+			async (
+				_input: Parameters<typeof fetch>[0],
+				_init?: Parameters<typeof fetch>[1],
+			) => Response.json({slug: 'lemon-pasta'}, {status: 200}),
+		);
+		const client = new MealieClient({
+			apiToken: 'secret-token',
+			baseUrl: 'http://mealie.test',
+			fetcher,
+		});
+
+		await expect(
+			client.importSchemaRecipe({
+				'@context': 'https://schema.org/',
+				'@type': 'Recipe',
+				name: 'Lemon Pasta',
+				recipeIngredient: ['200 g pasta'],
+				recipeInstructions: [{'@type': 'HowToStep', text: 'Boil the pasta.'}],
+			}),
+		).resolves.toBe('lemon-pasta');
+
+		const [requestUrl, requestInit] = fetcher.mock.calls[0];
+		expect(requestUrl).toEqual(
+			new URL('http://mealie.test/api/recipes/create/html-or-json'),
+		);
+		expect(requestInit).toMatchObject({
+			method: 'POST',
+			headers: expect.objectContaining({
+				'Content-Type': 'application/json',
+			}),
+		});
+		expect(JSON.parse(requestInit?.body as string)).toMatchObject({
+			includeCategories: false,
+			includeTags: false,
+		});
+	});
+
+	it('reads the current group slug and builds a browser recipe URL', async () => {
+		const fetcher = vi.fn(
+			async (
+				_input: Parameters<typeof fetch>[0],
+				_init?: Parameters<typeof fetch>[1],
+			) => Response.json({slug: 'family'}, {status: 200}),
+		);
+		const client = new MealieClient({
+			apiToken: 'secret-token',
+			baseUrl: 'https://mealie.example.test/mealie/',
+			fetcher,
+		});
+
+		await expect(client.getGroupSlug()).resolves.toBe('family');
+		expect(fetcher.mock.calls[0]?.[0]).toEqual(
+			new URL('https://mealie.example.test/api/groups/self'),
+		);
+		expect(
+			buildMealieRecipeUrl(
+				'https://mealie.example.test/mealie/',
+				'family',
+				'lemon-pasta',
+			),
+		).toBe('https://mealie.example.test/mealie/g/family/r/lemon-pasta');
 	});
 });

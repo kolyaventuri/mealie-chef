@@ -7,6 +7,15 @@ export type AppConfig = {
 	databasePath: string;
 	mealieApiToken?: string;
 	mealieBaseUrl?: string;
+	openAiApiKey?: string;
+	openAiRecipeModel: string;
+	openAiRecipeReasoningEffort:
+		| 'high'
+		| 'low'
+		| 'max'
+		| 'medium'
+		| 'none'
+		| 'xhigh';
 	port: number;
 	sessionMaxAgeMs: number;
 	staticRoot: string;
@@ -14,6 +23,8 @@ export type AppConfig = {
 
 const defaultSessionMaxAgeHours = 6;
 const millisecondsPerHour = 60 * 60 * 1000;
+const defaultOpenAiRecipeModel = 'gpt-5.6-luna';
+const defaultOpenAiReasoningEffort = 'medium' as const;
 
 const normalizeUrl = (value?: string): string | undefined => {
 	if (!value) {
@@ -32,6 +43,23 @@ const parseSessionMaxAgeMs = (value?: string): number => {
 		: defaultSessionMaxAgeHours * millisecondsPerHour;
 };
 
+const parseReasoningEffort = (
+	value?: string,
+): AppConfig['openAiRecipeReasoningEffort'] => {
+	if (
+		value === 'high' ||
+		value === 'low' ||
+		value === 'max' ||
+		value === 'medium' ||
+		value === 'none' ||
+		value === 'xhigh'
+	) {
+		return value;
+	}
+
+	return defaultOpenAiReasoningEffort;
+};
+
 export const loadConfig = (): AppConfig => ({
 	appTimeZone: process.env.APP_TIME_ZONE,
 	databasePath:
@@ -39,6 +67,13 @@ export const loadConfig = (): AppConfig => ({
 		path.join(process.cwd(), 'data', 'mealie-ipad-sync.sqlite'),
 	mealieApiToken: process.env.MEALIE_API_TOKEN,
 	mealieBaseUrl: normalizeUrl(process.env.MEALIE_BASE_URL),
+	openAiApiKey: process.env.OPENAI_API_KEY,
+	openAiRecipeModel: process.env.OPENAI_RECIPE_MODEL?.trim()
+		? process.env.OPENAI_RECIPE_MODEL.trim()
+		: defaultOpenAiRecipeModel,
+	openAiRecipeReasoningEffort: parseReasoningEffort(
+		process.env.OPENAI_RECIPE_REASONING_EFFORT,
+	),
 	port: Number(process.env.PORT ?? 3100),
 	sessionMaxAgeMs: parseSessionMaxAgeMs(process.env.SESSION_MAX_AGE_HOURS),
 	staticRoot: path.join(process.cwd(), 'dist', 'client'),

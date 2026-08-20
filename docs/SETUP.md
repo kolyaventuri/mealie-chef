@@ -12,6 +12,7 @@ Docker, Dokku, persistence, and common failure modes.
   Corepack if needed.
 - A Mealie instance reachable from this app.
 - A Mealie API token with access to recipes and household meal plans.
+- An OpenAI API key if the recipe importer is enabled.
 
 Check your local versions:
 
@@ -38,6 +39,9 @@ production:
 | --- | --- | --- | --- |
 | `MEALIE_BASE_URL` | Yes | none | Base URL for Mealie, such as `https://mealie.example.com`. Trailing slashes are stripped. |
 | `MEALIE_API_TOKEN` | Yes | none | Bearer token sent to Mealie. Do not commit it. |
+| `OPENAI_API_KEY` | No | none | Enables `/import`; kept on the server and never sent to the browser. |
+| `OPENAI_RECIPE_MODEL` | No | `gpt-5.6-luna` | OpenAI model used for recipe extraction. |
+| `OPENAI_RECIPE_REASONING_EFFORT` | No | `medium` | Responses API reasoning effort for recipe extraction. |
 | `PORT` | No | `3100` | Fastify server port. |
 | `APP_TIME_ZONE` | No | host default | IANA time zone used to decide planner `Today`, such as `America/Phoenix`. Set this explicitly in production. |
 | `DATABASE_PATH` | No | `data/mealie-ipad-sync.sqlite` | SQLite database path. Parent directories are created automatically. |
@@ -46,6 +50,24 @@ production:
 
 The app will start without Mealie credentials, but Mealie-backed routes return
 `503` until `MEALIE_BASE_URL` and `MEALIE_API_TOKEN` are set.
+
+The `/import` page requires `OPENAI_API_KEY`. It accepts one source mode at a
+time: a public HTTP(S) recipe URL, pasted text, or up to eight PNG/JPEG/WebP
+screenshots. URL fetching is server-side and rejects private or local targets;
+screenshots are held in memory only. The parser returns a Schema.org Recipe
+draft and review notes. The browser must acknowledge notes and confirm the
+editable draft before the server calls Mealie. On confirmation, the final
+ingredient strings also go through Mealie's ingredient parser so existing
+foods, units, and aliases are reused where possible; the full food list is not
+sent to OpenAI. If Mealie leaves a line unmatched, the server may send only
+those unmatched lines in one structured LLM cleanup request, then runs the
+normalized result through Mealie again before creating any missing food or unit.
+
+Import logs include the request ID, input mode and size metadata, parser stage,
+OpenAI request ID/token counts when available, and Mealie verification status.
+Source URLs, pasted text, screenshots, prompts, and recipe contents are not
+logged. The browser includes the request ID in `/import/*` error messages so a
+failed attempt can be matched to the server log.
 
 ## Local Development
 
@@ -108,8 +130,9 @@ pnpm start
 ```
 
 `pnpm start` serves static files from `dist/client`, API routes under `/api`,
-and WebSockets under `/ws`. Any non-API route falls back to `index.html`, so
-`/` and `/session` can both be loaded directly.
+the protected importer API under `/import/parse` and `/import/confirm`, and
+WebSockets under `/ws`. Any non-API route falls back to `index.html`, so `/`,
+`/session`, and `/import` can all be loaded directly.
 
 ## Docker
 
@@ -210,8 +233,16 @@ sqlite3 /var/lib/dokku/data/storage/chef/mealie-ipad-sync.sqlite '.tables'
 - `/api/recipes?query=...`: Mealie recipe search.
 - `/api/recipes/:slug`: normalized recipe detail.
 - `/api/global-session`: current shared cooking session.
+- `/import`: recipe import UI.
+- `/import/parse`: parse a URL, text payload, or screenshot multipart request.
+- `/import/confirm`: validate an edited Schema.org draft and verify the Mealie write.
 - `/ws`: global cooking-session WebSocket.
 - `/ws/sessions/:sessionId`: direct session WebSocket.
+
+The importer is intentionally not under `/api`. Put a Cloudflare Access or
+reverse-proxy policy on `/import/*` to protect both parser and confirmation
+requests. Configure the policy before exposing the server outside the trusted
+LAN; the app itself does not provide authentication.
 
 ## Troubleshooting
 

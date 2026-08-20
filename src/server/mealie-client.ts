@@ -8,6 +8,7 @@ import type {
 	RecipeSummary,
 	RecipeTool,
 } from '../shared/types';
+import type {SchemaOrgRecipe} from '../shared/recipe-import';
 import {HttpError, getString, isRecord} from './errors';
 
 type Fetcher = typeof fetch;
@@ -18,7 +19,47 @@ export type MealieClientOptions = {
 	fetcher?: Fetcher;
 };
 
+export type MealieIngredientReference = {
+	id?: string;
+	name?: string;
+	[key: string]: unknown;
+};
+
+export type MealieRecipeIngredient = {
+	display?: string;
+	food?: MealieIngredientReference;
+	note?: string;
+	originalText?: string;
+	quantity?: number;
+	referenceId?: string;
+	title?: string;
+	unit?: MealieIngredientReference;
+};
+
+export type ParsedMealieIngredient = {
+	confidence?: Record<string, unknown>;
+	ingredient: MealieRecipeIngredient;
+	input?: string;
+};
+
+export const buildMealieRecipeUrl = (
+	baseUrl: string,
+	groupSlug: string,
+	recipeSlug: string,
+): string => {
+	const url = new URL(baseUrl);
+	const basePath = url.pathname.replace(/\/+$/u, '');
+
+	url.pathname = `${basePath}/g/${encodeURIComponent(groupSlug)}/r/${encodeURIComponent(recipeSlug)}`;
+	url.search = '';
+	url.hash = '';
+
+	return url.toString();
+};
+
 type RequestOptions = {
+	body?: string;
+	method?: 'GET' | 'PATCH' | 'POST';
 	query?: Record<string, string | undefined>;
 };
 
@@ -79,6 +120,20 @@ const asString = (value: unknown): string | undefined => {
 	}
 
 	return getString(value);
+};
+
+const asNumber = (value: unknown): number | undefined => {
+	if (typeof value === 'number') {
+		return Number.isFinite(value) ? value : undefined;
+	}
+
+	if (typeof value === 'string' && value.trim()) {
+		const parsed = Number(value);
+
+		return Number.isFinite(parsed) ? parsed : undefined;
+	}
+
+	return undefined;
 };
 
 const normalizeComparableText = (value: string): string =>
@@ -217,6 +272,65 @@ const mapIngredient = (
 		note,
 		quantity,
 		unit,
+	};
+};
+
+const mapParsedMealieIngredient = (
+	payload: unknown,
+	index: number,
+): ParsedMealieIngredient => {
+	if (!isRecord(payload) || !isRecord(payload.ingredient)) {
+		throw new HttpError(
+			502,
+			`Mealie returned an invalid parsed ingredient at position ${index + 1}.`,
+		);
+	}
+
+	const parsed = payload.ingredient;
+	const unit = isRecord(parsed.unit) ? parsed.unit : undefined;
+	const food = isRecord(parsed.food) ? parsed.food : undefined;
+	const ingredient: MealieRecipeIngredient = {
+		display: textFrom(parsed.display),
+		food,
+		note: textFrom(parsed.note),
+		originalText: textFrom(parsed.originalText),
+		quantity: asNumber(parsed.quantity),
+		referenceId: textFrom(parsed.referenceId),
+		title: textFrom(parsed.title),
+		unit,
+	};
+
+	return {
+		confidence: isRecord(payload.confidence) ? payload.confidence : undefined,
+		ingredient,
+		input: textFrom(payload.input) ?? ingredient.originalText ?? undefined,
+	};
+};
+
+const mapCreatedIngredientReference = (
+	payload: unknown,
+	kind: 'food' | 'unit',
+	name: string,
+): MealieIngredientReference => {
+	if (!isRecord(payload)) {
+		throw new HttpError(
+			502,
+			`Mealie did not return the created ingredient ${kind} reference.`,
+		);
+	}
+
+	const id = textFrom(payload.id);
+
+	if (!id) {
+		throw new HttpError(
+			502,
+			`Mealie did not return an id for the created ingredient ${kind}.`,
+		);
+	}
+
+	return {
+		id,
+		name: textFrom(payload.name) ?? name,
 	};
 };
 
@@ -485,6 +599,168 @@ export class MealieClient {
 		return mapRecipeDetail(payload);
 	}
 
+	async createFood(name: string): Promise<MealieIngredientReference> {
+		const payload = await this.request('/api/foods', {
+			body: JSON.stringify({name}),
+			method: 'POST',
+		});
+
+		return mapCreatedIngredientReference(payload, 'food', name);
+	}
+
+	async createUnit(name: string): Promise<MealieIngredientReference> {
+		const payload = await this.request('/api/units', {
+			body: JSON.stringify({name}),
+			method: 'POST',
+		});
+
+		return mapCreatedIngredientReference(payload, 'unit', name);
+	}
+
+	async parseIngredients(
+		ingredients: string[],
+	): Promise<ParsedMealieIngredient[]> {
+		const payload = await this.request('/api/parser/ingredients', {
+			body: JSON.stringify({ingredients, parser: 'nlp'}),
+			method: 'POST',
+		});
+
+		if (!Array.isArray(payload) || payload.length !== ingredients.length) {
+			throw new HttpError(
+				502,
+				'Mealie returned an unexpected number of parsed ingredients.',
+			);
+		}
+
+		return payload.map((item, index) => mapParsedMealieIngredient(item, index));
+	}
+
+	async updateRecipeIngredients(
+		slug: string,
+		ingredients: ParsedMealieIngredient[],
+	): Promise<void> {
+		const foodReferences = new Map<
+			string,
+			Promise<MealieIngredientReference>
+		>();
+		const unitReferences = new Map<
+			string,
+			Promise<MealieIngredientReference>
+		>();
+		const resolveReference = async (
+			reference: MealieIngredientReference | undefined,
+			kind: 'food' | 'unit',
+		): Promise<MealieIngredientReference | undefined> => {
+			if (!reference) {
+				return undefined;
+			}
+
+			const id = textFrom(reference.id);
+			const name = textFrom(reference.name);
+
+			if (id) {
+				return {id, ...(name ? {name} : {})};
+			}
+
+			if (!name) {
+				return undefined;
+			}
+
+			const references = kind === 'food' ? foodReferences : unitReferences;
+			const cacheKey = name.toLowerCase();
+			const cached = references.get(cacheKey);
+
+			if (cached) {
+				return cached;
+			}
+
+			const created =
+				kind === 'food' ? this.createFood(name) : this.createUnit(name);
+			references.set(cacheKey, created);
+
+			return created;
+		};
+
+		const recipeIngredients = await Promise.all(
+			ingredients.map(async ({ingredient, input}) => {
+				const [food, unit] = await Promise.all([
+					resolveReference(ingredient.food, 'food'),
+					resolveReference(ingredient.unit, 'unit'),
+				]);
+				const originalText = input ?? ingredient.originalText;
+
+				return {
+					...(ingredient.display ? {display: ingredient.display} : {}),
+					...(food ? {food} : {}),
+					...(ingredient.note ? {note: ingredient.note} : {}),
+					...(originalText ? {originalText} : {}),
+					...(ingredient.quantity === undefined
+						? {}
+						: {quantity: ingredient.quantity}),
+					...(ingredient.referenceId
+						? {referenceId: ingredient.referenceId}
+						: {}),
+					...(ingredient.title ? {title: ingredient.title} : {}),
+					...(unit ? {unit} : {}),
+				};
+			}),
+		);
+
+		await this.requestRaw(`/api/recipes/${encodeURIComponent(slug)}`, {
+			body: JSON.stringify({
+				recipeIngredient: recipeIngredients,
+			}),
+			method: 'PATCH',
+		});
+	}
+
+	async getGroupSlug(): Promise<string> {
+		const payload = await this.request('/api/groups/self');
+		const slug = isRecord(payload) ? textFrom(payload.slug) : undefined;
+
+		if (!slug) {
+			throw new HttpError(502, 'Mealie did not return the current group slug.');
+		}
+
+		return slug;
+	}
+
+	async importSchemaRecipe(recipe: SchemaOrgRecipe): Promise<string> {
+		const response = await this.requestRaw('/api/recipes/create/html-or-json', {
+			body: JSON.stringify({
+				data: JSON.stringify(recipe),
+				includeCategories: false,
+				includeTags: false,
+				url: recipe.url,
+			}),
+			method: 'POST',
+		});
+		const text = await response.text();
+		let payload: unknown = text;
+
+		try {
+			payload = JSON.parse(text) as unknown;
+		} catch {
+			// Some Mealie versions return the slug as plain text.
+		}
+
+		const slug =
+			typeof payload === 'string'
+				? payload.trim()
+				: isRecord(payload) && typeof payload.slug === 'string'
+					? payload.slug.trim()
+					: '';
+
+		if (!slug) {
+			throw new HttpError(
+				502,
+				'Mealie did not return the imported recipe slug.',
+			);
+		}
+
+		return slug;
+	}
+
 	async proxy(path: string): Promise<Response> {
 		return this.requestRaw(path);
 	}
@@ -518,10 +794,13 @@ export class MealieClient {
 		}
 
 		const response = await this.fetcher(url, {
+			body: options.body,
 			headers: {
 				Accept: 'application/json',
 				Authorization: `Bearer ${this.apiToken}`,
+				...(options.body ? {'Content-Type': 'application/json'} : {}),
 			},
+			method: options.method ?? 'GET',
 		});
 
 		if (!response.ok) {

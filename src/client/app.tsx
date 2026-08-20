@@ -7,10 +7,9 @@ import {
 	Copy,
 	CookingPot,
 	Loader2,
-	Moon,
 	QrCode,
 	RefreshCw,
-	Sun,
+	Sparkles,
 	Wifi,
 	WifiOff,
 	X,
@@ -32,6 +31,8 @@ import {
 	ToolList,
 	WeekPlanner,
 } from './components';
+import {RecipeImportPage} from './recipe-import';
+import {ThemeToggle, type Theme} from './theme-toggle';
 
 const websocketReconnectDelayMs = 1500;
 
@@ -41,9 +42,21 @@ type Route =
 	  }
 	| {
 			name: 'session';
+	  }
+	| {
+			name: 'import';
 	  };
 
 const parseRoute = (): Route => {
+	if (
+		globalThis.location.pathname === '/import' ||
+		globalThis.location.pathname === '/import/'
+	) {
+		return {
+			name: 'import',
+		};
+	}
+
 	if (
 		globalThis.location.pathname === '/session' ||
 		/^\/sessions\/[^/]+$/.test(globalThis.location.pathname)
@@ -62,8 +75,6 @@ const navigate = (path: string): void => {
 	globalThis.history.pushState({}, '', path);
 	globalThis.dispatchEvent(new PopStateEvent('popstate'));
 };
-
-type Theme = 'dark' | 'light';
 
 const themeStorageKey = 'mealie-ipad-sync-theme';
 
@@ -116,11 +127,22 @@ export const App = () => {
 		setTheme((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'));
 	};
 
-	return route.name === 'session' ? (
+	return route.name === 'import' ? (
+		<RecipeImportPage
+			onBack={() => {
+				navigate('/');
+			}}
+			onToggleTheme={toggleTheme}
+			theme={theme}
+		/>
+	) : route.name === 'session' ? (
 		<CookingPage theme={theme} onToggleTheme={toggleTheme} />
 	) : (
 		<PlannerPage
 			theme={theme}
+			onOpenImporter={() => {
+				navigate('/import');
+			}}
 			onOpenSession={() => {
 				navigate('/session');
 			}}
@@ -130,12 +152,14 @@ export const App = () => {
 };
 
 type PlannerPageProps = {
+	onOpenImporter(): void;
 	onOpenSession(): void;
 	onToggleTheme(): void;
 	theme: Theme;
 };
 
 const PlannerPage = ({
+	onOpenImporter,
 	onOpenSession,
 	onToggleTheme,
 	theme,
@@ -212,6 +236,14 @@ const PlannerPage = ({
 					</div>
 				</div>
 				<div className="topbar__actions">
+					<button
+						className="button button--quiet"
+						type="button"
+						onClick={onOpenImporter}
+					>
+						<Sparkles aria-hidden="true" size={17} />
+						Import recipe
+					</button>
 					<ThemeToggle theme={theme} onToggleTheme={onToggleTheme} />
 					<button
 						className="icon-button"
@@ -260,32 +292,6 @@ const PlannerPage = ({
 				/>
 			</section>
 		</main>
-	);
-};
-
-type ThemeToggleProps = {
-	onToggleTheme(): void;
-	theme: Theme;
-};
-
-const ThemeToggle = ({onToggleTheme, theme}: ThemeToggleProps) => {
-	const nextTheme = theme === 'dark' ? 'light' : 'dark';
-
-	return (
-		<button
-			aria-label={`Switch to ${nextTheme} mode`}
-			className="icon-button theme-toggle"
-			title={`Switch to ${nextTheme} mode`}
-			type="button"
-			onClick={onToggleTheme}
-		>
-			{theme === 'dark' ? (
-				<Sun aria-hidden="true" size={19} />
-			) : (
-				<Moon aria-hidden="true" size={19} />
-			)}
-			<span className="sr-only">Switch to {nextTheme} mode</span>
-		</button>
 	);
 };
 

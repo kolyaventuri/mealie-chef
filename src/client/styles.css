@@ -19,10 +19,23 @@
 @layer base {
   :root {
     --app-bg:
-      radial-gradient(circle at 20% -10%, rgb(15 122 89 / 0.1), transparent 30%),
-      linear-gradient(180deg, rgb(251 252 248 / 0.94) 0%, rgb(238 242 239 / 0.96) 45%, #e5ece6 100%);
+      radial-gradient(
+        circle at 20% -10%,
+        rgb(15 122 89 / 0.1),
+        transparent 30%
+      ),
+      linear-gradient(
+        180deg,
+        rgb(251 252 248 / 0.94) 0%,
+        rgb(238 242 239 / 0.96) 45%,
+        #e5ece6 100%
+      );
     --cooking-bg:
-      radial-gradient(circle at 72% -18%, rgb(201 138 36 / 0.12), transparent 28%),
+      radial-gradient(
+        circle at 72% -18%,
+        rgb(201 138 36 / 0.12),
+        transparent 28%
+      ),
       linear-gradient(180deg, rgb(251 252 248 / 0.82), rgb(238 242 239 / 0.84));
     --glass-bg: rgb(251 252 248 / 0.82);
     --panel-bg: rgb(251 252 248 / 0.92);
@@ -33,7 +46,13 @@
     color: var(--color-ink);
     background: var(--color-canvas);
     font-family:
-      Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      Inter,
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif;
     font-synthesis: none;
     letter-spacing: 0;
     text-rendering: optimizeLegibility;
@@ -54,11 +73,23 @@
     --shadow-soft: 0 22px 56px rgb(0 0 0 / 0.4);
     --shadow-panel: 0 16px 38px rgb(0 0 0 / 0.3);
     --app-bg:
-      radial-gradient(circle at 22% -12%, rgb(85 214 166 / 0.13), transparent 32%),
-      radial-gradient(circle at 84% 0%, rgb(240 184 94 / 0.08), transparent 28%),
+      radial-gradient(
+        circle at 22% -12%,
+        rgb(85 214 166 / 0.13),
+        transparent 32%
+      ),
+      radial-gradient(
+        circle at 84% 0%,
+        rgb(240 184 94 / 0.08),
+        transparent 28%
+      ),
       linear-gradient(180deg, #090d0c 0%, #0c1210 48%, #080b0a 100%);
     --cooking-bg:
-      radial-gradient(circle at 76% -16%, rgb(85 214 166 / 0.11), transparent 30%),
+      radial-gradient(
+        circle at 76% -16%,
+        rgb(85 214 166 / 0.11),
+        transparent 30%
+      ),
       linear-gradient(180deg, rgb(9 13 12 / 0.98), rgb(8 11 10 / 0.98));
     --glass-bg: rgb(16 23 21 / 0.78);
     --panel-bg: rgb(16 23 21 / 0.9);
@@ -165,7 +196,7 @@
 
   .icon-button,
   .button {
-    @apply inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-line-strong px-4 text-sm font-medium text-ink shadow-sm transition;
+    @apply inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-line-strong px-4 text-sm font-medium text-ink no-underline shadow-sm transition;
     background: var(--panel-solid);
   }
 
@@ -381,7 +412,10 @@
 
   .cook-layout {
     @apply grid items-start gap-4;
-    grid-template-columns: minmax(170px, 205px) minmax(0, 1fr) minmax(320px, 430px);
+    grid-template-columns: minmax(170px, 205px) minmax(0, 1fr) minmax(
+        320px,
+        430px
+      );
   }
 
   .cook-layout.is-setup-hidden {
@@ -711,6 +745,290 @@
     @apply inline-flex min-h-12 items-center gap-2.5 text-sm font-medium text-muted;
   }
 
+  .app-shell--import {
+    @apply pb-8;
+  }
+
+  .import-layout {
+    @apply mx-auto grid max-w-[1480px] items-start gap-5;
+    grid-template-columns: minmax(320px, 0.72fr) minmax(0, 1.28fr);
+  }
+
+  .import-source-panel,
+  .import-review-column,
+  .import-empty-preview,
+  .import-success {
+    @apply min-w-0 rounded-lg border border-line shadow-panel backdrop-blur;
+    background: var(--panel-bg);
+  }
+
+  .import-source-panel,
+  .import-review-column,
+  .import-empty-preview,
+  .import-success {
+    @apply p-4 sm:p-5;
+  }
+
+  .import-source-panel {
+    @apply sticky top-4;
+  }
+
+  .import-source-panel__header,
+  .recipe-import-preview__header,
+  .import-editor-section__header {
+    @apply flex items-start justify-between gap-3;
+  }
+
+  .import-source-panel__header h1,
+  .recipe-import-preview__header h1,
+  .import-success h1 {
+    @apply m-0 text-2xl font-semibold leading-tight text-ink;
+  }
+
+  .import-source-panel__header p,
+  .recipe-import-preview__header p,
+  .import-success p,
+  .import-upload p {
+    @apply mb-0 mt-2 text-sm leading-relaxed text-muted;
+  }
+
+  .eyebrow {
+    @apply text-[0.68rem] font-bold uppercase tracking-[0.14em] text-accent;
+  }
+
+  .import-mode-tabs {
+    @apply my-5 grid gap-2;
+  }
+
+  .import-mode-tabs button {
+    @apply grid min-h-14 gap-0.5 rounded-lg border border-line p-3 text-left transition;
+    background: var(--subtle-bg);
+  }
+
+  .import-mode-tabs button:hover,
+  .import-mode-tabs button.is-active {
+    @apply border-accent;
+    background: var(--hover-bg);
+  }
+
+  .import-mode-tabs strong {
+    @apply text-sm font-semibold text-ink;
+  }
+
+  .import-mode-tabs span {
+    @apply text-xs leading-snug text-muted;
+  }
+
+  .import-field {
+    @apply grid gap-1.5;
+  }
+
+  .import-field--wide {
+    @apply mb-4;
+  }
+
+  .import-field > span,
+  .import-subsection h3 {
+    @apply text-xs font-bold uppercase tracking-[0.1em] text-muted;
+  }
+
+  .import-field input,
+  .import-field textarea,
+  .import-list-editor input,
+  .import-list-editor textarea {
+    @apply min-h-11 w-full rounded-lg border border-line-strong px-3 py-2 text-sm leading-relaxed text-ink outline-none transition;
+    background: var(--panel-solid);
+  }
+
+  .import-field textarea,
+  .import-list-editor textarea {
+    resize: vertical;
+  }
+
+  .import-field input:focus,
+  .import-field textarea:focus,
+  .import-list-editor input:focus,
+  .import-list-editor textarea:focus {
+    @apply border-accent ring-4 ring-accent/10;
+  }
+
+  .import-upload {
+    @apply mb-4 grid gap-3;
+  }
+
+  .button--upload {
+    @apply w-full border-dashed;
+  }
+
+  .import-upload__grid {
+    @apply grid grid-cols-2 gap-2 sm:grid-cols-3;
+  }
+
+  .import-upload__grid figure {
+    @apply m-0 overflow-hidden rounded-lg border border-line;
+    background: var(--subtle-bg);
+  }
+
+  .import-upload__grid img {
+    @apply aspect-[4/3] w-full object-cover;
+  }
+
+  .import-upload__grid figcaption {
+    @apply flex items-center justify-between gap-2 border-t border-line px-2 py-1.5 text-xs font-medium text-muted;
+  }
+
+  .import-submit {
+    @apply mt-2 w-full;
+  }
+
+  .import-empty-preview {
+    @apply grid min-h-[420px] place-content-center justify-items-center gap-3 text-center text-muted;
+  }
+
+  .import-empty-preview svg {
+    @apply text-accent;
+  }
+
+  .import-empty-preview strong {
+    @apply text-base font-semibold text-ink;
+  }
+
+  .import-empty-preview span {
+    @apply max-w-sm text-sm leading-relaxed;
+  }
+
+  .import-review-column {
+    @apply grid gap-4;
+  }
+
+  .import-review-notes {
+    @apply rounded-lg border border-amber/50 bg-amber/10 p-4 text-sm text-ink;
+  }
+
+  .import-review-notes--error {
+    @apply border-danger/50 bg-danger/10;
+  }
+
+  .import-review-notes strong {
+    @apply font-semibold;
+  }
+
+  .import-review-notes ul {
+    @apply mb-0 mt-2 grid gap-1.5 pl-5;
+  }
+
+  .import-acknowledgment {
+    @apply mt-4 flex min-h-11 items-center gap-2 font-medium;
+  }
+
+  .import-acknowledgment input {
+    @apply size-4 accent-accent;
+  }
+
+  .recipe-import-preview {
+    @apply grid gap-5;
+  }
+
+  .recipe-import-preview__header {
+    @apply border-b border-line pb-4;
+  }
+
+  .recipe-import-preview__header .button {
+    @apply shrink-0;
+  }
+
+  .import-ingredient-parser-note {
+    @apply m-0 rounded-xl border border-line px-4 py-3 text-sm text-muted;
+    background: var(--subtle-bg);
+  }
+
+  .recipe-draft-editor {
+    @apply grid gap-4;
+  }
+
+  .import-editor-section {
+    @apply grid gap-3 border-b border-line pb-5;
+  }
+
+  .import-editor-section:last-child {
+    @apply border-b-0 pb-0;
+  }
+
+  .import-editor-section__header {
+    @apply items-center;
+  }
+
+  .import-editor-section__header h2 {
+    @apply m-0 text-lg font-semibold text-ink;
+  }
+
+  .import-editor-section__header p {
+    @apply mb-0 mt-1 text-sm text-muted;
+  }
+
+  .import-editor-section__header > span {
+    @apply rounded-full border border-line px-2.5 py-1 text-xs font-semibold text-muted;
+    background: var(--subtle-bg);
+  }
+
+  .import-fields-grid {
+    @apply grid gap-3 sm:grid-cols-2;
+  }
+
+  .import-fields-grid .import-field--wide {
+    @apply sm:col-span-2;
+  }
+
+  .import-subsection {
+    @apply grid gap-3;
+  }
+
+  .import-subsection h3 {
+    @apply mb-0;
+  }
+
+  .import-list-editor {
+    @apply grid gap-2;
+  }
+
+  .import-list-editor__row {
+    @apply flex min-w-0 items-center gap-2;
+  }
+
+  .import-list-editor__row--step {
+    @apply items-start;
+  }
+
+  .import-list-editor__row input,
+  .import-list-editor__row textarea {
+    @apply min-w-0 flex-1;
+  }
+
+  .import-list-editor .button--quiet {
+    @apply justify-self-start;
+  }
+
+  .import-review-actions {
+    @apply flex flex-wrap justify-between gap-3 border-t border-line pt-4;
+  }
+
+  .import-success {
+    @apply mx-auto mt-12 grid max-w-2xl justify-items-center gap-3 text-center;
+  }
+
+  .import-success > svg {
+    @apply text-accent;
+  }
+
+  .import-success code {
+    @apply rounded border border-line px-1.5 py-0.5 text-xs text-ink;
+    background: var(--subtle-bg);
+  }
+
+  .import-success__actions {
+    @apply mt-3 flex flex-wrap justify-center gap-3;
+  }
+
   .spin {
     animation: spin 0.8s linear infinite;
   }
@@ -755,6 +1073,14 @@
   .step-rail {
     grid-template-columns: repeat(8, minmax(42px, 1fr));
   }
+
+  .import-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .import-source-panel {
+    position: static;
+  }
 }
 
 @media (max-width: 900px) {
@@ -798,6 +1124,44 @@
   .brand-mark span,
   .recipe-title span {
     @apply hidden;
+  }
+
+  .topbar__actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .topbar__actions .button--quiet {
+    @apply px-3;
+  }
+
+  .import-source-panel,
+  .import-review-column,
+  .import-empty-preview,
+  .import-success {
+    @apply p-3;
+  }
+
+  .import-mode-tabs {
+    @apply my-4;
+  }
+
+  .recipe-import-preview__header {
+    @apply flex-col;
+  }
+
+  .recipe-import-preview__header .button {
+    @apply w-full;
+  }
+
+  .import-review-actions,
+  .import-success__actions {
+    @apply grid;
+  }
+
+  .import-review-actions .button,
+  .import-success__actions .button {
+    @apply w-full;
   }
 
   .search-form,
