@@ -140,9 +140,6 @@ export const App = () => {
 	) : (
 		<PlannerPage
 			theme={theme}
-			onOpenImporter={() => {
-				navigate('/import');
-			}}
 			onOpenSession={() => {
 				navigate('/session');
 			}}
@@ -152,14 +149,12 @@ export const App = () => {
 };
 
 type PlannerPageProps = {
-	onOpenImporter(): void;
 	onOpenSession(): void;
 	onToggleTheme(): void;
 	theme: Theme;
 };
 
 const PlannerPage = ({
-	onOpenImporter,
 	onOpenSession,
 	onToggleTheme,
 	theme,
@@ -236,14 +231,10 @@ const PlannerPage = ({
 					</div>
 				</div>
 				<div className="topbar__actions">
-					<button
-						className="button button--quiet"
-						type="button"
-						onClick={onOpenImporter}
-					>
+					<a className="button button--quiet" href="/import">
 						<Sparkles aria-hidden="true" size={17} />
 						Import recipe
-					</button>
+					</a>
 					<ThemeToggle theme={theme} onToggleTheme={onToggleTheme} />
 					<button
 						className="icon-button"
