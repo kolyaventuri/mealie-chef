@@ -1,4 +1,5 @@
 import {describe, expect, it, vi} from 'vitest';
+import OpenAI from 'openai';
 import {type RecipeParserClient, OpenAiRecipeParser} from './recipe-parser';
 
 const recipe = {
@@ -30,6 +31,123 @@ const createParser = (client: RecipeParserClient): OpenAiRecipeParser =>
 	});
 
 describe('OpenAI recipe parser', () => {
+	it.each([
+		{
+			upstream: 400,
+			status: 502,
+			code: 'invalid_json_schema',
+			message: 'rejected the parsing request',
+		},
+		{
+			upstream: 401,
+			status: 502,
+			code: 'invalid_api_key',
+			message: 'rejected the server API key',
+		},
+		{
+			upstream: 403,
+			status: 502,
+			code: 'permission_denied',
+			message: 'denied access',
+		},
+		{
+			upstream: 404,
+			status: 502,
+			code: 'model_not_found',
+			message: 'denied access',
+		},
+		{
+			upstream: 429,
+			status: 503,
+			code: 'insufficient_quota',
+			message: 'insufficient quota',
+		},
+		{
+			upstream: 429,
+			status: 503,
+			code: 'rate_limit_exceeded',
+			message: 'OpenAI is rate-limiting',
+		},
+		{
+			upstream: 500,
+			status: 503,
+			code: 'server_error',
+			message: 'temporarily unavailable',
+		},
+	])(
+		'preserves safe SDK diagnostics for upstream $upstream/$code',
+		async ({upstream, status, code, message}) => {
+			const client = createClient(undefined);
+			vi.mocked(client.responses.create).mockRejectedValue(
+				OpenAI.APIError.generate(
+					upstream,
+					{
+						error: {
+							code,
+							message:
+								'Sensitive source text and sk-secret must not be logged.',
+							param: 'text.format.schema',
+							type: 'invalid_request_error',
+						},
+					},
+					'upstream failure',
+					new Headers({'x-request-id': 'req_openai_test'}),
+				),
+			);
+			const parser = createParser(client);
+			await Promise.all(
+				[
+					parser.parse({mode: 'text', text: 'Boil pasta.'}),
+					parser.parseIngredients(['200 g pasta']),
+				].map(async (request) => {
+					await expect(request).rejects.toMatchObject({
+						statusCode: status,
+						message: expect.stringContaining(message),
+						openaiStatus: upstream,
+						openaiErrorCode: code,
+						openaiErrorParam: 'text.format.schema',
+						openaiErrorType: 'invalid_request_error',
+						openaiRequestId: 'req_openai_test',
+					});
+					await expect(request).rejects.not.toHaveProperty('cause');
+					await expect(request).rejects.not.toHaveProperty('headers');
+					await expect(request).rejects.not.toHaveProperty('error');
+				}),
+			);
+		},
+	);
+
+	it.each([
+		{
+			error: new OpenAI.APIConnectionTimeoutError(),
+			status: 504,
+			message: 'timed out',
+		},
+		{
+			error: new OpenAI.APIConnectionError({}),
+			status: 503,
+			message: 'could not connect',
+		},
+		{
+			error: new TypeError('Sensitive internal details'),
+			status: 500,
+			message: 'could not complete',
+		},
+	])(
+		'distinguishes transport and internal failures: $status/$message',
+		async ({error, status, message}) => {
+			const client = createClient(undefined);
+			vi.mocked(client.responses.create).mockRejectedValue(error);
+			await expect(
+				createParser(client).parse({mode: 'text', text: 'Boil pasta.'}),
+			).rejects.toMatchObject({
+				statusCode: status,
+				message: expect.stringContaining(message),
+				openaiErrorName: error.name,
+			});
+		},
+	);
+
 	it('uses the configured model and strict structured output for text', async () => {
 		const client = createClient({
 			_request_id: 'resp_recipe_import_test',

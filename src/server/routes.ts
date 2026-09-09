@@ -418,6 +418,21 @@ const recipeImportErrorMetadata = (error: unknown): Record<string, unknown> => {
 
 	const metadata: Record<string, unknown> = {};
 
+	for (const field of [
+		'openaiErrorCode',
+		'openaiErrorName',
+		'openaiErrorParam',
+		'openaiErrorType',
+	]) {
+		if (typeof error[field] === 'string') {
+			metadata[field] = error[field];
+		}
+	}
+
+	if (typeof error.openaiStatus === 'number') {
+		metadata.openaiStatus = error.openaiStatus;
+	}
+
 	if (typeof error.openaiRequestId === 'string') {
 		metadata.openaiRequestId = error.openaiRequestId;
 	}
@@ -594,6 +609,7 @@ export const createApp = async ({
 }: AppDependencies): Promise<FastifyInstance> => {
 	const app = fastify({
 		bodyLimit: 32 * 1024 * 1024,
+		trustProxy: config.trustedProxies ?? false,
 		logger: {
 			level: process.env.LOG_LEVEL ?? 'info',
 		},
@@ -769,7 +785,7 @@ export const createApp = async ({
 
 	// This handler has separate validation branches for the three mutually exclusive input modes.
 	// eslint-disable-next-line complexity
-	app.post('/import/parse', async (request) => {
+	app.post('/import/parse', async (request, reply) => {
 		const startedAt = Date.now();
 		let mode: RecipeImportMode | undefined;
 		let stage = 'configuration';
@@ -808,9 +824,25 @@ export const createApp = async ({
 				now - existingLimit.startedAt < parserRateLimitWindowMs &&
 				existingLimit.count >= parserRateLimitMaxRequests
 			) {
+				const retryAfterSeconds = Math.ceil(
+					(existingLimit.startedAt + parserRateLimitWindowMs - now) / 1000,
+				);
+				const retryAfterMinutes = Math.ceil(retryAfterSeconds / 60);
+				void reply.header('Retry-After', retryAfterSeconds);
+				request.log.warn(
+					{
+						limit: parserRateLimitMaxRequests,
+						requestCount: existingLimit.count,
+						requestId: request.id,
+						retryAfterSeconds,
+						stage: 'rate_limit',
+						windowSeconds: parserRateLimitWindowMs / 1000,
+					},
+					'recipe import local rate limit exceeded',
+				);
 				throw new HttpError(
 					429,
-					'Recipe import is temporarily rate-limited. Try again in a few minutes.',
+					`Recipe import reached this server's limit of ${parserRateLimitMaxRequests} attempts per 15 minutes. Try again in ${retryAfterMinutes} ${retryAfterMinutes === 1 ? 'minute' : 'minutes'}.`,
 				);
 			}
 

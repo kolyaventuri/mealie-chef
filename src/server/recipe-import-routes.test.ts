@@ -1,7 +1,9 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
+import OpenAI from 'openai';
 import type {SchemaOrgRecipe} from '../shared/recipe-import';
 import type {AppConfig} from './config';
 import {HttpError} from './errors';
+import {OpenAiRecipeParser} from './recipe-parser';
 import type {MealieClient} from './mealie-client';
 import {createApp} from './routes';
 import {SessionStore} from './session-store';
@@ -42,9 +44,11 @@ describe('recipe import routes', () => {
 
 	afterEach(async () => {
 		await Promise.all(apps.splice(0).map(async (app) => app.close()));
+		vi.restoreAllMocks();
 	});
 
 	const createRouteApp = async (options?: {
+		config?: Partial<AppConfig>;
 		ingredientParser?: {
 			parseIngredients(inputs: string[]): Promise<{
 				ingredients: Array<{
@@ -69,7 +73,7 @@ describe('recipe import routes', () => {
 		}>;
 	}) => {
 		const app = await createApp({
-			config,
+			config: {...config, ...options?.config},
 			mealieClient: {
 				configured: true,
 				getGroupSlug: vi.fn(async () => 'home'),
@@ -103,6 +107,124 @@ describe('recipe import routes', () => {
 
 		return app;
 	};
+
+	it('logs upstream diagnostics without exposing provider messages or credentials', async () => {
+		const parser = new OpenAiRecipeParser({
+			model: config.openAiRecipeModel,
+			reasoningEffort: config.openAiRecipeReasoningEffort,
+			client: {
+				responses: {
+					create: vi.fn().mockRejectedValue(
+						OpenAI.APIError.generate(
+							401,
+							{
+								error: {
+									code: 'invalid_api_key',
+									message: 'Incorrect API key: sk-secret',
+									type: 'invalid_request_error',
+								},
+							},
+							'invalid key',
+							new Headers({'x-request-id': 'req_upstream_test'}),
+						),
+					),
+				},
+			},
+		});
+		const app = await createRouteApp({parser});
+		const warnings: unknown[] = [];
+		app.addHook('onRequest', async (request) => {
+			vi.spyOn(request.log, 'warn').mockImplementation((...args: unknown[]) => {
+				warnings.push(args);
+			});
+		});
+		const response = await app.inject({
+			method: 'POST',
+			payload: {mode: 'text', text: 'Private recipe text'},
+			url: '/import/parse',
+		});
+		expect(response.statusCode).toBe(502);
+		expect(response.json()).toMatchObject({
+			message: expect.stringContaining('rejected the server API key'),
+			requestId: expect.any(String),
+		});
+		expect(warnings).toContainEqual([
+			expect.objectContaining({
+				openaiStatus: 401,
+				openaiErrorCode: 'invalid_api_key',
+				openaiRequestId: 'req_upstream_test',
+				stage: 'openai_request',
+			}),
+			'recipe import failed',
+		]);
+		const output = JSON.stringify(warnings) + response.body;
+		expect(output).not.toContain('sk-secret');
+		expect(output).not.toContain('Private recipe text');
+	});
+
+	it('reports the remaining local quota wait and resets at the window boundary', async () => {
+		const now = vi.spyOn(Date, 'now').mockReturnValue(1_000_000);
+		const parser = {
+			parse: vi.fn(async () => ({recipe: schemaRecipe, reviewNotes: []})),
+		};
+		const app = await createRouteApp({parser});
+		const parse = async () =>
+			app.inject({
+				method: 'POST',
+				payload: {mode: 'text', text: 'Boil pasta.'},
+				url: '/import/parse',
+			});
+		const allowed = await Promise.all(Array.from({length: 5}, parse));
+		for (const response of allowed) {
+			expect(response.statusCode).toBe(200);
+		}
+
+		now.mockReturnValue(1_000_000 + 60_001);
+		const limited = await parse();
+		expect(limited.statusCode).toBe(429);
+		expect(limited.headers['retry-after']).toBe('840');
+		expect(limited.json()).toMatchObject({
+			message: expect.stringContaining('14 minutes'),
+			requestId: expect.any(String),
+		});
+		expect(parser.parse).toHaveBeenCalledTimes(5);
+		now.mockReturnValue(1_000_000 + 15 * 60 * 1000);
+		const reset = await parse();
+		expect(reset.statusCode).toBe(200);
+	});
+
+	it.each([
+		{trustedProxies: ['172.17.0.1'], peer: '172.17.0.1', status: 200},
+		{trustedProxies: undefined, peer: '172.17.0.1', status: 429},
+		{trustedProxies: ['172.17.0.1'], peer: '192.0.2.10', status: 429},
+	])(
+		'only trusts forwarded client IPs from configured proxies: %j',
+		async ({trustedProxies, peer, status}) => {
+			const parser = {
+				parse: vi.fn(async () => ({recipe: schemaRecipe, reviewNotes: []})),
+			};
+			const app = await createRouteApp({config: {trustedProxies}, parser});
+			const parse = async (address: string) =>
+				app.inject({
+					headers: {'x-forwarded-for': address},
+					method: 'POST',
+					payload: {mode: 'text', text: 'Boil pasta.'},
+					remoteAddress: peer,
+					url: '/import/parse',
+				});
+			const allowed = await Promise.all(
+				Array.from({length: 5}, async () => parse('198.51.100.1')),
+			);
+			for (const response of allowed) {
+				expect(response.statusCode).toBe(200);
+			}
+
+			const limited = await parse('198.51.100.1');
+			expect(limited.statusCode).toBe(429);
+			const otherClient = await parse('198.51.100.2');
+			expect(otherClient.statusCode).toBe(status);
+		},
+	);
 
 	it('parses arbitrary text without contacting the URL source fetcher', async () => {
 		const parser = {

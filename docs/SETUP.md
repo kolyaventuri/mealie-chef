@@ -178,6 +178,21 @@ dokku config:set chef \
   SESSION_MAX_AGE_HOURS=6
 ```
 
+For imports behind Dokku nginx, set `TRUSTED_PROXIES` to the proxy peer IP
+shown as `req.remoteAddress` in the app logs (the existing `chef` deployment
+uses `172.17.0.1`):
+
+```sh
+dokku config:set chef TRUSTED_PROXIES=172.17.0.1
+```
+
+This comma-separated IP/CIDR allowlist lets Fastify use nginx's
+`X-Forwarded-For` header for client IPs. Leave it unset for direct access.
+Only include proxies you control that overwrite or safely append forwarded
+headers. With another proxy ahead of nginx, nginx must also be configured to
+forward the correct client address; trusting the Docker gateway alone cannot
+recover an address nginx has discarded.
+
 Deploy:
 
 ```sh
@@ -245,6 +260,31 @@ requests. Configure the policy before exposing the server outside the trusted
 LAN; the app itself does not provide authentication.
 
 ## Troubleshooting
+
+Recipe import fails at `stage: "openai_request"`.
+
+The toast distinguishes a rejected API key, model/resource access, invalid
+request configuration, exhausted quota, upstream rate limiting, and transport
+failures. These return 502 for rejected requests, 503 for temporary upstream
+or quota failures, and 504 for timeouts. Internal errors return 500. Logs retain
+`openaiStatus`, `openaiErrorCode`, `openaiErrorType`, `openaiErrorParam`,
+`openaiErrorName`, and `openaiRequestId` when provided by the SDK. Use the
+OpenAI request ID to correlate provider diagnostics; the app request ID still
+appears in the toast. Raw provider messages, headers, credentials, and recipe
+content are not logged.
+
+Recipe import returns HTTP 429 with `stage: "rate_limit"`.
+
+This is the app's local limit of five parse attempts per client IP per
+15-minute window, including failed attempts. The request is rejected before
+fetching a recipe page or calling OpenAI. Behind Dokku, configure
+`TRUSTED_PROXIES` as above so all requests do not share the Docker gateway's
+quota. Clients sharing a public IP still share a quota. The response includes
+`Retry-After` in seconds and the error message gives the remaining wait in
+minutes. Logs include the limit, request count, window, and remaining wait.
+Rejected attempts do not extend the window. Earlier failures may have consumed
+the quota; inspect earlier `recipe import failed` entries for their stage and
+error code. The limiter is held in memory per app process and resets on restart.
 
 `Mealie is not configured. Set MEALIE_BASE_URL and MEALIE_API_TOKEN.`
 

@@ -69,6 +69,11 @@ type ResponseCreateParameters = Parameters<OpenAI['responses']['create']>[0];
 type ResponseCreateResult = Awaited<ReturnType<OpenAI['responses']['create']>>;
 
 type RecipeParserMetadata = {
+	openaiErrorCode?: string;
+	openaiErrorName?: string;
+	openaiErrorParam?: string;
+	openaiErrorType?: string;
+	openaiStatus?: number;
 	requestId?: string;
 	usage?: RecipeParserUsage;
 };
@@ -372,6 +377,11 @@ const getResponseMetadata = (
 };
 
 class RecipeParserResponseError extends HttpError {
+	readonly openaiErrorCode?: string;
+	readonly openaiErrorName?: string;
+	readonly openaiErrorParam?: string;
+	readonly openaiErrorType?: string;
+	readonly openaiStatus?: number;
 	readonly openaiRequestId?: string;
 	readonly usage?: RecipeParserUsage;
 
@@ -382,10 +392,102 @@ class RecipeParserResponseError extends HttpError {
 	) {
 		super(statusCode, message);
 		this.name = 'RecipeParserResponseError';
+		this.openaiErrorCode = metadata.openaiErrorCode;
+		this.openaiErrorName = metadata.openaiErrorName;
+		this.openaiErrorParam = metadata.openaiErrorParam;
+		this.openaiErrorType = metadata.openaiErrorType;
+		this.openaiStatus = metadata.openaiStatus;
 		this.openaiRequestId = metadata.requestId;
 		this.usage = metadata.usage;
 	}
 }
+
+// Keep provider messages, headers, credentials, and source material out of logs.
+const safeErrorIdentifier = (value: unknown): string | undefined =>
+	typeof value === 'string' && /^[\w.[\]-]{1,200}$/.test(value)
+		? value
+		: undefined;
+
+const getRequestErrorMetadata = (error: unknown): RecipeParserMetadata => {
+	const apiError = error instanceof OpenAI.APIError ? error : undefined;
+	return {
+		openaiErrorCode: safeErrorIdentifier(apiError?.code),
+		openaiErrorName: safeErrorIdentifier(
+			error instanceof Error ? error.name : undefined,
+		),
+		openaiErrorParam: safeErrorIdentifier(apiError?.param),
+		openaiErrorType: safeErrorIdentifier(apiError?.type),
+		openaiStatus: apiError?.status,
+		requestId: safeErrorIdentifier(apiError?.requestID),
+	};
+};
+
+const parserRequestError = (error: unknown): HttpError => {
+	if (error instanceof HttpError) {
+		return error;
+	}
+
+	const apiError = error instanceof OpenAI.APIError ? error : undefined;
+	let statusCode = 502;
+	let message =
+		'OpenAI could not complete recipe parsing. Check the server logs.';
+
+	if (error instanceof OpenAI.APIConnectionTimeoutError) {
+		statusCode = 504;
+		message = 'The OpenAI parsing request timed out. Try again.';
+	} else if (error instanceof OpenAI.APIConnectionError) {
+		statusCode = 503;
+		message = 'The server could not connect to OpenAI. Try again shortly.';
+	} else
+		switch (apiError?.status) {
+			case 401: {
+				message = 'OpenAI rejected the server API key. Check OPENAI_API_KEY.';
+
+				break;
+			}
+
+			case 403:
+			case 404: {
+				message =
+					'OpenAI denied access to the configured model or resource. Check OPENAI_RECIPE_MODEL and the API project permissions.';
+
+				break;
+			}
+
+			case 400:
+			case 422: {
+				message =
+					'OpenAI rejected the parsing request. Check the model settings and response schema in the server logs.';
+
+				break;
+			}
+
+			case 429: {
+				statusCode = 503;
+				message =
+					apiError.code === 'insufficient_quota'
+						? 'The OpenAI API project has insufficient quota. Check its billing and usage limits.'
+						: 'OpenAI is rate-limiting the parsing request. Try again shortly.';
+
+				break;
+			}
+
+			default: {
+				if (apiError?.status !== undefined && apiError.status >= 500) {
+					statusCode = 503;
+					message = 'OpenAI is temporarily unavailable. Try again shortly.';
+				} else if (!apiError) {
+					statusCode = 500;
+				}
+			}
+		}
+
+	return new RecipeParserResponseError(
+		statusCode,
+		message,
+		getRequestErrorMetadata(error),
+	);
+};
 
 // The response envelope, refusal handling, and recipe validation are intentionally kept together.
 const parseResponse = (response: ResponseCreateResult): RecipeParserResult => {
@@ -605,23 +707,7 @@ export class OpenAiRecipeParser implements IngredientParser {
 
 			return parseResponse(response);
 		} catch (error) {
-			if (error instanceof HttpError) {
-				throw error;
-			}
-
-			const errorRecord = isRecord(error) ? error : undefined;
-			const requestId =
-				typeof errorRecord?.request_id === 'string'
-					? errorRecord.request_id
-					: typeof errorRecord?._request_id === 'string'
-						? errorRecord._request_id
-						: undefined;
-
-			throw new RecipeParserResponseError(
-				503,
-				'OpenAI recipe parsing is temporarily unavailable. Try again later.',
-				{requestId},
-			);
+			throw parserRequestError(error);
 		}
 	}
 
@@ -663,23 +749,7 @@ export class OpenAiRecipeParser implements IngredientParser {
 
 			return parseIngredientResponse(response, inputs.length);
 		} catch (error) {
-			if (error instanceof HttpError) {
-				throw error;
-			}
-
-			const errorRecord = isRecord(error) ? error : undefined;
-			const requestId =
-				typeof errorRecord?.request_id === 'string'
-					? errorRecord.request_id
-					: typeof errorRecord?._request_id === 'string'
-						? errorRecord._request_id
-						: undefined;
-
-			throw new RecipeParserResponseError(
-				503,
-				'OpenAI ingredient parsing is temporarily unavailable.',
-				{requestId},
-			);
+			throw parserRequestError(error);
 		}
 	}
 }

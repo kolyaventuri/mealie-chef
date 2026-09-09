@@ -19,6 +19,7 @@ export type AppConfig = {
 	port: number;
 	sessionMaxAgeMs: number;
 	staticRoot: string;
+	trustedProxies?: string[];
 };
 
 const defaultSessionMaxAgeHours = 6;
@@ -77,4 +78,7 @@ export const loadConfig = (): AppConfig => ({
 	port: Number(process.env.PORT ?? 3100),
 	sessionMaxAgeMs: parseSessionMaxAgeMs(process.env.SESSION_MAX_AGE_HOURS),
 	staticRoot: path.join(process.cwd(), 'dist', 'client'),
+	trustedProxies: process.env.TRUSTED_PROXIES?.split(',')
+		.map((address) => address.trim())
+		.filter(Boolean),
 });
