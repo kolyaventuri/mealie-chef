@@ -31,6 +31,37 @@ const createParser = (client: RecipeParserClient): OpenAiRecipeParser =>
 	});
 
 describe('OpenAI recipe parser', () => {
+	it.each([401, 403])(
+		'identifies missing Responses write permission even when returned as HTTP %i',
+		async (status) => {
+			const client = createClient(undefined);
+			vi.mocked(client.responses.create).mockRejectedValue(
+				OpenAI.APIError.generate(
+					status,
+					{
+						error: {
+							code: null,
+							message:
+								'You have insufficient permissions for this operation. Missing scopes: api.responses.write.',
+							type: 'invalid_request_error',
+						},
+					},
+					'permission denied',
+					new Headers({'x-request-id': 'req_permissions'}),
+				),
+			);
+			await expect(
+				createParser(client).parse({mode: 'text', text: 'Boil pasta.'}),
+			).rejects.toMatchObject({
+				statusCode: 502,
+				message: expect.stringContaining('Enable Responses write access'),
+				openaiStatus: status,
+				openaiErrorReason: 'missing_responses_write_scope',
+				openaiRequestId: 'req_permissions',
+			});
+		},
+	);
+
 	it.each([
 		{
 			upstream: 400,

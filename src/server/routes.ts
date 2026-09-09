@@ -422,6 +422,7 @@ const recipeImportErrorMetadata = (error: unknown): Record<string, unknown> => {
 		'openaiErrorCode',
 		'openaiErrorName',
 		'openaiErrorParam',
+		'openaiErrorReason',
 		'openaiErrorType',
 	]) {
 		if (typeof error[field] === 'string') {

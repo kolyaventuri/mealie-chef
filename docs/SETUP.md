@@ -273,6 +273,15 @@ OpenAI request ID to correlate provider diagnostics; the app request ID still
 appears in the toast. Raw provider messages, headers, credentials, and recipe
 content are not logged.
 
+`The OpenAI API key lacks permission to create responses.`
+
+Enable Responses API write access (`api.responses.write`) for the server's
+key in the OpenAI dashboard and check its project/organization role. OpenAI
+can return this missing-scope error as HTTP 401 even when the key appears in
+the dashboard's activity. The app logs
+`openaiErrorReason: "missing_responses_write_scope"` for this case. If replacing
+the key, update `OPENAI_API_KEY` in Dokku and restart the app.
+
 Recipe import returns HTTP 429 with `stage: "rate_limit"`.
 
 This is the app's local limit of five parse attempts per client IP per

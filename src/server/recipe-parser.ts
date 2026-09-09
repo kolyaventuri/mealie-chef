@@ -72,6 +72,7 @@ type RecipeParserMetadata = {
 	openaiErrorCode?: string;
 	openaiErrorName?: string;
 	openaiErrorParam?: string;
+	openaiErrorReason?: string;
 	openaiErrorType?: string;
 	openaiStatus?: number;
 	requestId?: string;
@@ -380,6 +381,7 @@ class RecipeParserResponseError extends HttpError {
 	readonly openaiErrorCode?: string;
 	readonly openaiErrorName?: string;
 	readonly openaiErrorParam?: string;
+	readonly openaiErrorReason?: string;
 	readonly openaiErrorType?: string;
 	readonly openaiStatus?: number;
 	readonly openaiRequestId?: string;
@@ -395,6 +397,7 @@ class RecipeParserResponseError extends HttpError {
 		this.openaiErrorCode = metadata.openaiErrorCode;
 		this.openaiErrorName = metadata.openaiErrorName;
 		this.openaiErrorParam = metadata.openaiErrorParam;
+		this.openaiErrorReason = metadata.openaiErrorReason;
 		this.openaiErrorType = metadata.openaiErrorType;
 		this.openaiStatus = metadata.openaiStatus;
 		this.openaiRequestId = metadata.requestId;
@@ -408,6 +411,12 @@ const safeErrorIdentifier = (value: unknown): string | undefined =>
 		? value
 		: undefined;
 
+const isMissingResponsesPermission = (error: unknown): boolean =>
+	error instanceof OpenAI.APIError &&
+	(error.status === 401 || error.status === 403) &&
+	error.message.includes('Missing scopes:') &&
+	error.message.includes('api.responses.write');
+
 const getRequestErrorMetadata = (error: unknown): RecipeParserMetadata => {
 	const apiError = error instanceof OpenAI.APIError ? error : undefined;
 	return {
@@ -416,6 +425,9 @@ const getRequestErrorMetadata = (error: unknown): RecipeParserMetadata => {
 			error instanceof Error ? error.name : undefined,
 		),
 		openaiErrorParam: safeErrorIdentifier(apiError?.param),
+		openaiErrorReason: isMissingResponsesPermission(error)
+			? 'missing_responses_write_scope'
+			: undefined,
 		openaiErrorType: safeErrorIdentifier(apiError?.type),
 		openaiStatus: apiError?.status,
 		requestId: safeErrorIdentifier(apiError?.requestID),
@@ -438,6 +450,9 @@ const parserRequestError = (error: unknown): HttpError => {
 	} else if (error instanceof OpenAI.APIConnectionError) {
 		statusCode = 503;
 		message = 'The server could not connect to OpenAI. Try again shortly.';
+	} else if (isMissingResponsesPermission(error)) {
+		message =
+			'The OpenAI API key lacks permission to create responses. Enable Responses write access (api.responses.write) for this key in the OpenAI dashboard.';
 	} else
 		switch (apiError?.status) {
 			case 401: {
