@@ -42,7 +42,6 @@
     --panel-solid: #fbfcf8;
     --subtle-bg: rgb(242 245 239 / 0.92);
     --hover-bg: rgb(15 122 89 / 0.06);
-    --qr-bg: #ffffff;
     color: var(--color-ink);
     background: var(--color-canvas);
     font-family:
@@ -96,7 +95,6 @@
     --panel-solid: #101715;
     --subtle-bg: rgb(21 29 26 / 0.96);
     --hover-bg: rgb(85 214 166 / 0.08);
-    --qr-bg: #f8faf7;
   }
 
   * {
@@ -290,7 +288,6 @@
 
   .planner-main,
   .search-panel,
-  .session-panel,
   .steps-region,
   .ingredients-region {
     @apply min-w-0 rounded-lg border border-line shadow-panel backdrop-blur;
@@ -412,59 +409,12 @@
 
   .cook-layout {
     @apply grid items-start gap-4;
-    grid-template-columns: minmax(170px, 205px) minmax(0, 1fr) minmax(
-        320px,
-        430px
-      );
-  }
-
-  .cook-layout.is-setup-hidden {
     grid-template-columns: minmax(0, 1fr) minmax(320px, 430px);
   }
 
-  .session-panel,
   .steps-region,
   .ingredients-region {
     @apply p-4;
-  }
-
-  .session-panel {
-    @apply sticky top-4;
-  }
-
-  .session-panel {
-    @apply grid gap-4;
-  }
-
-  .session-panel__header {
-    @apply flex items-center justify-between gap-3 border-b border-line pb-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted;
-  }
-
-  .share-block {
-    @apply grid gap-3;
-  }
-
-  .qr-box {
-    @apply grid place-items-center rounded-lg border border-line p-3;
-    background: var(--qr-bg);
-  }
-
-  .step-rail {
-    @apply grid gap-2;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .step-rail button {
-    @apply aspect-square min-w-0 rounded-lg border border-line-strong text-sm font-semibold text-muted transition;
-    background: var(--subtle-bg);
-  }
-
-  .step-rail button:hover {
-    @apply border-accent text-accent;
-  }
-
-  .step-rail button.is-active {
-    @apply border-accent bg-accent text-white shadow-sm;
   }
 
   .connection-pill {
@@ -1059,21 +1009,6 @@
     grid-template-columns: minmax(0, 1fr) minmax(300px, 0.78fr);
   }
 
-  .session-panel {
-    position: static;
-    grid-column: 1 / -1;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: start;
-  }
-
-  .share-block {
-    min-width: 178px;
-  }
-
-  .step-rail {
-    grid-template-columns: repeat(8, minmax(42px, 1fr));
-  }
-
   .import-layout {
     grid-template-columns: 1fr;
   }
@@ -1093,27 +1028,6 @@
     grid-template-columns: 1fr;
   }
 
-  .cook-layout.is-setup-hidden {
-    grid-template-columns: 1fr;
-  }
-
-  .session-panel {
-    position: static;
-  }
-
-  .session-panel {
-    grid-template-columns: 1fr;
-  }
-
-  .share-block {
-    min-width: 0;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-  }
-
-  .step-rail {
-    grid-template-columns: repeat(6, minmax(42px, 1fr));
-  }
 }
 
 @media (max-width: 640px) {
@@ -1164,13 +1078,11 @@
     @apply w-full;
   }
 
-  .search-form,
-  .share-block {
+  .search-form {
     grid-template-columns: 1fr;
   }
 
-  .search-form .button,
-  .share-block .button {
+  .search-form .button {
     @apply w-full;
   }
 
@@ -1183,7 +1095,4 @@
     @apply w-full justify-center text-center;
   }
 
-  .step-rail {
-    grid-template-columns: repeat(4, minmax(42px, 1fr));
-  }
 }

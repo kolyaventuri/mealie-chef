@@ -110,7 +110,6 @@ ipconfig getifaddr en0
 
 Open `http://<lan-ip>:3100` on the first iPad, start a recipe from the planner
 or recipe search, then open `http://<lan-ip>:3100/session` on the second iPad.
-The setup panel on the cooking screen also provides a QR code and copyable link.
 
 If the iPads cannot connect, check that the Mac and iPads are on the same
 network and that macOS firewall settings allow inbound connections to Node.

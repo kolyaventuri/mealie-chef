@@ -13,7 +13,6 @@ screens on the same recipe step with synced ingredient checkoffs.
   reconnects.
 - Persistent SQLite session state, including historical sessions and ingredient
   progress.
-- QR code and copyable session link for joining another iPad.
 - Cook mode using the browser Screen Wake Lock API when available.
   - Must be run in an HTTPS context
 - Light and dark themes.
@@ -23,8 +22,6 @@ screens on the same recipe step with synced ingredient checkoffs.
 ## Screenshots
 
 ![Weekly meal planner in dark mode on an iPad landscape viewport](docs/screenshots/ipad-landscape-planner-dark.jpg)
-
-![Cooking session setup view with QR code sharing in dark mode](docs/screenshots/ipad-landscape-cooking-setup-dark.jpg)
 
 ![Focused cooking view with synced step controls and ingredients in dark mode](docs/screenshots/ipad-landscape-cooking-focus-dark.jpg)
 
