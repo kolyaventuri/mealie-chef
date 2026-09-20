@@ -29,6 +29,7 @@ const recipe = {
 		},
 	],
 	name: 'Rice Bowl',
+	recipeServings: 4,
 	slug: 'rice-bowl',
 	steps: [
 		{
@@ -149,6 +150,7 @@ describe('routes', () => {
 			url: '/api/global-session',
 		});
 		expect(sessionResponse.statusCode).toBe(200);
+		expect(sessionResponse.json().session.servings).toBe(4);
 		const sessionId = sessionResponse.json().session.id as string;
 
 		const globalSessionResponse = await app.inject('/api/global-session');
@@ -206,6 +208,110 @@ describe('routes', () => {
 		expect(body.days.find((day) => day.date === '2026-06-04')).toMatchObject({
 			isToday: false,
 		});
+	});
+
+	it('syncs servings across clients, HTTP fallback, and reconnects without writing to Mealie', async () => {
+		const mealie = createMockMealie();
+		const original = structuredClone(recipe);
+		const app = await createApp({
+			config,
+			mealieClient: mealie,
+			sessionStore: new SessionStore(':memory:'),
+		});
+		apps.push(app);
+		await app.listen({host: '127.0.0.1', port: 0});
+		const created = await app.inject({
+			method: 'POST',
+			url: '/api/global-session',
+			body: {recipeSlug: recipe.slug},
+		});
+		const sessionId = created.json().session.id as string;
+		const address = app.server.address() as AddressInfo;
+		const url = `ws://127.0.0.1:${address.port}/ws`;
+		const first = new WebSocket(url);
+		const second = new WebSocket(url);
+		sockets.push(first, second);
+		await Promise.all([
+			waitForMessage(first, (m) => m.type === 'snapshot'),
+			waitForMessage(second, (m) => m.type === 'snapshot'),
+		]);
+		const firstUpdate = waitForMessage(
+			first,
+			(m) => m.type === 'patch' && m.session.servings === 6,
+		);
+		const secondUpdate = waitForMessage(
+			second,
+			(m) => m.type === 'patch' && m.session.servings === 6,
+		);
+		const adjustment = JSON.stringify({
+			type: 'patch',
+			patch: {type: 'adjust-servings', change: 1, defaultServings: 4},
+		});
+		first.send(adjustment);
+		second.send(adjustment);
+		for (const result of await Promise.all([firstUpdate, secondUpdate])) {
+			expect(result).toMatchObject({session: {servings: 6, revision: 2}});
+		}
+
+		const reconnected = new WebSocket(url);
+		sockets.push(reconnected);
+		expect(
+			await waitForMessage(reconnected, (m) => m.type === 'snapshot'),
+		).toMatchObject({session: {servings: 6}});
+		const httpUpdate = waitForMessage(
+			second,
+			(m) => m.type === 'patch' && m.session.servings === 5,
+		);
+		const changed = await app.inject({
+			method: 'PATCH',
+			url: '/api/global-session',
+			body: {type: 'adjust-servings', change: -1, defaultServings: 4},
+		});
+		expect(changed.json().session.servings).toBe(5);
+		await httpUpdate;
+		const resetUpdate = waitForMessage(
+			second,
+			(m) => m.type === 'patch' && m.session.servings === null,
+		);
+		await app.inject({
+			method: 'PATCH',
+			url: '/api/global-session',
+			body: {type: 'set-servings', servings: null},
+		});
+		await resetUpdate;
+		const saved = await app.inject(`/api/sessions/${sessionId}`);
+		expect(saved.json().session.servings).toBeNull();
+		expect(mealie.getRecipe).toHaveBeenCalledTimes(1);
+		expect(recipe).toEqual(original);
+	});
+
+	it.each([
+		{type: 'set-servings', servings: 0},
+		{type: 'set-servings', servings: -2},
+		{type: 'set-servings', servings: '6'},
+		{type: 'set-servings'},
+		{type: 'adjust-servings', change: 2, defaultServings: 4},
+		{type: 'adjust-servings', change: 1, defaultServings: 0},
+	])('rejects malformed serving mutations %s', async (body) => {
+		const app = await createApp({
+			config,
+			mealieClient: createMockMealie(),
+			sessionStore: new SessionStore(':memory:'),
+		});
+		apps.push(app);
+		await app.inject({
+			method: 'POST',
+			url: '/api/global-session',
+			body: {recipeSlug: recipe.slug},
+		});
+		const response = await app.inject({
+			method: 'PATCH',
+			url: '/api/global-session',
+			body,
+		});
+		expect(response.statusCode).toBe(400);
+		const saved = await app.inject('/api/global-session');
+		expect(saved.json().session).toMatchObject({servings: 4, revision: 0});
 	});
 
 	it('expires global sessions using the configured max age', async () => {

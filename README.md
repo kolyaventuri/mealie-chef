@@ -9,7 +9,9 @@ screens on the same recipe step with synced ingredient checkoffs.
 - Weekly planner from Mealie, with an app-configured `Today` date.
 - Recipe search against Mealie.
 - Shared `/session` cooking screen for one or more iPads.
-- WebSocket sync for the active step, ingredient checkoffs, presence, and
+- Serving controls default to Mealie’s serving count, with synced − / + and
+  reset controls. Ingredient amounts use readable fractions or rounded decimals.
+- WebSocket sync for servings, the active step, ingredient checkoffs, presence, and
   reconnects.
 - Persistent SQLite session state, including historical sessions and ingredient
   progress.
@@ -102,6 +104,13 @@ through Mealie before any missing food or unit is created.
 Every iPad on `/session` joins the current global session. Step changes and
 ingredient checkoffs are written to SQLite and broadcast over WebSockets. If a
 socket drops, the client reconnects and receives the latest snapshot.
+
+Serving changes are saved only in the cooking session and never edit the recipe
+in Mealie. Each new session starts at the original serving count. Structured
+ingredient amounts scale proportionally; ingredients without a usable amount
+are marked as written, and instructions remain unchanged. Recipes without a
+known serving count keep their original amounts. Existing SQLite databases are
+upgraded automatically, preserving sessions and checkoffs.
 
 The current shared session is a pointer stored in SQLite `app_state`. The
 underlying `sessions` and `ingredient_checks` rows are kept as history. The

@@ -3,11 +3,14 @@ import {
 	ChevronDown,
 	ChevronRight,
 	Circle,
+	Minus,
 	Play,
+	Plus,
 	Search,
 	Wrench,
 } from 'lucide-react';
 import type {
+	CookingSession,
 	IngredientState,
 	MealPlanEntry,
 	PlannerDay,
@@ -16,7 +19,84 @@ import type {
 	RecipeTool,
 	RecipeSummary,
 } from '../shared/types';
+import {
+	canScaleIngredient,
+	scaledIngredientDisplay,
+} from '../shared/recipe-scaling';
 import {FormattedContent} from './formatted-content';
+
+export type ServingControlsProps = {
+	defaultServings?: number;
+	servings: CookingSession['servings'];
+	onAdjust(change: -1 | 1): void;
+	onReset(): void;
+};
+
+export const ServingControls = ({
+	defaultServings,
+	servings,
+	onAdjust,
+	onReset,
+}: ServingControlsProps) => {
+	if (!defaultServings) {
+		return (
+			<p className="serving-controls__note">
+				Mealie hasn’t specified a serving count. Amounts are shown as written.
+			</p>
+		);
+	}
+
+	const current = servings ?? defaultServings;
+
+	return (
+		<section className="serving-controls" aria-label="Recipe servings">
+			<div className="serving-controls__row">
+				<span>Servings</span>
+				<div className="serving-controls__stepper">
+					<button
+						className="icon-button"
+						type="button"
+						aria-label="Decrease servings"
+						disabled={current <= Math.min(1, defaultServings)}
+						onClick={() => {
+							onAdjust(-1);
+						}}
+					>
+						<Minus aria-hidden="true" size={18} />
+					</button>
+					<output aria-label="Servings" aria-live="polite">
+						{Number(current.toFixed(2))}
+					</output>
+					<button
+						className="icon-button"
+						type="button"
+						aria-label="Increase servings"
+						disabled={current >= Number.MAX_SAFE_INTEGER}
+						onClick={() => {
+							onAdjust(1);
+						}}
+					>
+						<Plus aria-hidden="true" size={18} />
+					</button>
+				</div>
+			</div>
+			<div className="serving-controls__row serving-controls__defaults">
+				<span>Original: {defaultServings}</span>
+				<button
+					type="button"
+					className="serving-controls__reset"
+					disabled={current === defaultServings}
+					onClick={onReset}
+				>
+					Reset
+				</button>
+			</div>
+			<p className="serving-controls__note">
+				For this session only. Amounts in steps stay as written.
+			</p>
+		</section>
+	);
+};
 
 export type WeekPlannerProps = {
 	days: PlannerDay[];
@@ -270,6 +350,7 @@ export type IngredientListProps = {
 	ingredients: RecipeIngredient[];
 	onCheckedChange(ingredientKey: string, checked: boolean): void;
 	states: Record<string, IngredientState>;
+	scale?: number;
 };
 
 export const IngredientList = ({
@@ -277,6 +358,7 @@ export const IngredientList = ({
 	ingredients,
 	onCheckedChange,
 	states,
+	scale = 1,
 }: IngredientListProps) => (
 	<div className="ingredient-list" aria-label="Ingredients">
 		{ingredients.map((ingredient) => {
@@ -301,10 +383,15 @@ export const IngredientList = ({
 						) : (
 							<Circle aria-hidden="true" size={22} />
 						)}
-						<span>{ingredient.display}</span>
+						<span>{scaledIngredientDisplay(ingredient, scale)}</span>
 					</label>
 					{ingredient.note ? (
 						<p className="ingredient-row__source-note">{ingredient.note}</p>
+					) : null}
+					{scale !== 1 && !canScaleIngredient(ingredient) ? (
+						<p className="ingredient-row__source-note">
+							As written · no scalable amount
+						</p>
 					) : null}
 				</section>
 			);

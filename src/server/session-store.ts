@@ -8,12 +8,14 @@ import type {
 	SessionMutation,
 	SessionPatch,
 } from '../shared/types';
+import {isValidServings} from '../shared/recipe-scaling';
 import {HttpError} from './errors';
 
 export type CreateSessionInput = {
 	recipeSlug: string;
 	recipeName: string;
 	ingredientKeys: string[];
+	servings?: number;
 };
 
 export type GetGlobalSessionOptions = {
@@ -29,6 +31,7 @@ type SessionRow = {
 	recipe_name: string;
 	recipe_slug: string;
 	revision: number;
+	servings: CookingSession['servings'];
 	updated_at: string;
 };
 
@@ -90,6 +93,11 @@ export class SessionStore {
       );
     `);
 
+		const columns = this.database.prepare('PRAGMA table_info(sessions)').all();
+		if (!columns.some((column) => column.name === 'servings')) {
+			this.database.exec('ALTER TABLE sessions ADD COLUMN servings REAL;');
+		}
+
 		this.getSessionStatement = this.database.prepare(
 			'SELECT * FROM sessions WHERE id = ?',
 		);
@@ -116,11 +124,12 @@ export class SessionStore {
           recipe_name,
           active_step_index,
           ingredient_keys_json,
+          servings,
           revision,
           created_at,
           updated_at
         )
-        VALUES (?, ?, ?, 0, ?, 0, ?, ?)
+        VALUES (?, ?, ?, 0, ?, ?, 0, ?, ?)
       `,
 			)
 			.run(
@@ -128,6 +137,7 @@ export class SessionStore {
 				input.recipeSlug,
 				input.recipeName,
 				JSON.stringify(ingredientKeys),
+				isValidServings(input.servings) ? input.servings : null,
 				timestamp,
 				timestamp,
 			);
@@ -215,6 +225,44 @@ export class SessionStore {
 		const timestamp = nowISOString();
 
 		switch (mutation.type) {
+			case 'set-servings':
+			case 'adjust-servings': {
+				if (
+					mutation.type === 'adjust-servings' &&
+					(!isValidServings(mutation.defaultServings) ||
+						(mutation.change !== -1 && mutation.change !== 1))
+				) {
+					throw new HttpError(400, 'Serving adjustment is invalid.');
+				}
+
+				const servings =
+					mutation.type === 'set-servings'
+						? mutation.servings
+						: Math.max(
+								Math.min(1, mutation.defaultServings),
+								(session.servings ?? mutation.defaultServings) +
+									mutation.change,
+							);
+
+				if (servings !== null && !isValidServings(servings)) {
+					throw new HttpError(
+						400,
+						'Servings must be a positive finite number.',
+					);
+				}
+
+				this.database
+					.prepare(
+						`
+					UPDATE sessions
+					SET servings = ?, revision = revision + 1, updated_at = ?
+					WHERE id = ?
+				`,
+					)
+					.run(servings, timestamp, id);
+				break;
+			}
+
 			case 'set-active-step': {
 				const activeStepIndex = Math.max(
 					0,
@@ -334,6 +382,7 @@ export class SessionStore {
 			recipeName: row.recipe_name,
 			recipeSlug: row.recipe_slug,
 			revision: row.revision,
+			servings: row.servings,
 			updatedAt: row.updated_at,
 		};
 	}

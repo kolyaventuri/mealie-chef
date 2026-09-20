@@ -7,6 +7,31 @@ import {
 } from './mealie-client';
 
 describe('MealieClient mapping', () => {
+	it('keeps numeric servings when Mealie returns an empty yield', () => {
+		const recipe = mapRecipeDetail({
+			name: 'Bread',
+			slug: 'bread',
+			recipeServings: 12,
+			recipeYield: '',
+			recipeIngredient: [
+				{quantity: 50, food: {name: 'flour'}, unit: {name: 'gram'}},
+			],
+		});
+		expect(recipe.recipeServings).toBe(12);
+		expect(recipe.ingredients[0]).toMatchObject({
+			quantity: '50',
+			unit: 'gram',
+			food: 'flour',
+		});
+	});
+
+	it('does not invent a serving count from a non-serving yield', () => {
+		expect(
+			mapRecipeDetail({name: 'Bread', slug: 'bread', recipeYield: '2 loaves'})
+				.recipeServings,
+		).toBeUndefined();
+	});
+
 	it('maps recipe details and links ingredients to formatted steps', () => {
 		const recipe = mapRecipeDetail({
 			cookTime: 'PT20M',

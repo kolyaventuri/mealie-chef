@@ -655,6 +655,38 @@
     background: var(--panel-solid);
   }
 
+  .serving-controls {
+    @apply mb-4 border-b border-line pb-4;
+  }
+
+  .serving-controls__row {
+    @apply flex flex-wrap items-center justify-between gap-2 text-sm font-semibold;
+  }
+
+  .serving-controls__stepper {
+    @apply flex items-center gap-2;
+  }
+
+  .serving-controls__stepper output {
+    @apply min-w-10 text-center text-lg font-semibold tabular-nums;
+  }
+
+  .serving-controls__defaults {
+    @apply mt-1 text-xs text-muted;
+  }
+
+  .serving-controls__reset {
+    @apply min-h-11 px-3 font-semibold text-accent;
+  }
+
+  .serving-controls__reset:disabled {
+    @apply cursor-default text-muted opacity-50;
+  }
+
+  .serving-controls__note {
+    @apply mb-3 mt-2 text-xs leading-relaxed text-muted;
+  }
+
   .ingredient-row.is-linked {
     @apply border-amber bg-amber/5;
     box-shadow: inset 4px 0 0 var(--color-amber);

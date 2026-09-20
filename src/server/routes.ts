@@ -109,6 +109,25 @@ const parseSessionMutation = (value: unknown): SessionMutation => {
 		};
 	}
 
+	if (
+		value.type === 'set-servings' &&
+		(value.servings === null || typeof value.servings === 'number')
+	) {
+		return {type: value.type, servings: value.servings};
+	}
+
+	if (
+		value.type === 'adjust-servings' &&
+		(value.change === -1 || value.change === 1) &&
+		typeof value.defaultServings === 'number'
+	) {
+		return {
+			type: value.type,
+			change: value.change,
+			defaultServings: value.defaultServings,
+		};
+	}
+
 	throw new HttpError(400, 'Session patch is invalid.');
 };
 
@@ -1100,6 +1119,7 @@ export const createApp = async ({
 		const recipeSlug = getRecipeSlug(request.body);
 		const recipe = await mealie.getRecipe(recipeSlug);
 		const session = store.createSession({
+			servings: recipe.recipeServings,
 			ingredientKeys: recipe.ingredients.map((ingredient) => ingredient.key),
 			recipeName: recipe.name,
 			recipeSlug: recipe.slug,
@@ -1118,6 +1138,7 @@ export const createApp = async ({
 		const recipeSlug = getRecipeSlug(request.body);
 		const recipe = await mealie.getRecipe(recipeSlug);
 		const session = store.createGlobalSession({
+			servings: recipe.recipeServings,
 			ingredientKeys: recipe.ingredients.map((ingredient) => ingredient.key),
 			recipeName: recipe.name,
 			recipeSlug: recipe.slug,

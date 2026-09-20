@@ -15,6 +15,7 @@ export type RecipeIngredient = {
 	unit?: string;
 	food?: string;
 	note?: string;
+	disableAmount?: boolean;
 	linkedStepIndexes: number[];
 };
 
@@ -32,6 +33,7 @@ export type RecipeTool = {
 };
 
 export type RecipeDetail = RecipeSummary & {
+	recipeServings?: number;
 	recipeYield?: string;
 	prepTime?: string;
 	cookTime?: string;
@@ -69,11 +71,16 @@ export type IngredientState = {
 	updatedAt: string;
 };
 
+// Null is the explicit reset-to-recipe-default value in JSON and SQLite.
+// eslint-disable-next-line @typescript-eslint/no-restricted-types
+export type SessionServings = number | null;
+
 export type CookingSession = {
 	id: string;
 	recipeSlug: string;
 	recipeName: string;
 	activeStepIndex: number;
+	servings: SessionServings;
 	ingredientKeys: string[];
 	ingredientStates: Record<string, IngredientState>;
 	revision: number;
@@ -92,7 +99,22 @@ export type SetIngredientCheckedPatch = {
 	checked: boolean;
 };
 
-export type SessionMutation = SetActiveStepPatch | SetIngredientCheckedPatch;
+export type SetServingsPatch = {
+	type: 'set-servings';
+	servings: SessionServings;
+};
+
+export type AdjustServingsPatch = {
+	type: 'adjust-servings';
+	change: -1 | 1;
+	defaultServings: number;
+};
+
+export type SessionMutation =
+	| SetActiveStepPatch
+	| SetIngredientCheckedPatch
+	| SetServingsPatch
+	| AdjustServingsPatch;
 
 export type SessionPatch = SessionMutation & {
 	revision: number;

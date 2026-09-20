@@ -23,6 +23,7 @@ import {api, globalWebsocketUrl} from './api';
 import {
 	IngredientList,
 	RecipeSearch,
+	ServingControls,
 	StepStack,
 	ToolList,
 	WeekPlanner,
@@ -598,7 +599,22 @@ const CookingPage = ({onToggleTheme, theme}: CookingPageProps) => {
 			return;
 		}
 
-		setSession(await api.patchGlobalSession(patch));
+		try {
+			const updatedSession = await api.patchGlobalSession(patch);
+			setSession((current) =>
+				current?.id === updatedSession.id &&
+				current.revision > updatedSession.revision
+					? current
+					: updatedSession,
+			);
+			setError(undefined);
+		} catch (patchError) {
+			setError(
+				patchError instanceof Error
+					? patchError.message
+					: 'Could not update session.',
+			);
+		}
 	};
 
 	const setStepCollapsed = useCallback(
@@ -636,6 +652,9 @@ const CookingPage = ({onToggleTheme, theme}: CookingPageProps) => {
 	);
 	const canGoBack = activeStepIndex > 0;
 	const canGoForward = activeStepIndex < recipe.steps.length - 1;
+	const scale = recipe.recipeServings
+		? (session.servings ?? recipe.recipeServings) / recipe.recipeServings
+		: 1;
 
 	return (
 		<main className="app-shell app-shell--cooking">
@@ -720,10 +739,27 @@ const CookingPage = ({onToggleTheme, theme}: CookingPageProps) => {
 						<h2>Ingredients</h2>
 						<span>{recipe.ingredients.length}</span>
 					</header>
+					<ServingControls
+						defaultServings={recipe.recipeServings}
+						servings={session.servings}
+						onAdjust={(change) => {
+							if (recipe.recipeServings) {
+								void sendPatch({
+									type: 'adjust-servings',
+									change,
+									defaultServings: recipe.recipeServings,
+								});
+							}
+						}}
+						onReset={() => {
+							void sendPatch({type: 'set-servings', servings: null});
+						}}
+					/>
 					<IngredientList
 						activeStepIndex={activeStepIndex}
 						ingredients={recipe.ingredients}
 						states={session.ingredientStates}
+						scale={scale}
 						onCheckedChange={(ingredientKey, checked) =>
 							void sendPatch({
 								checked,

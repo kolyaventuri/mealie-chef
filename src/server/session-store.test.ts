@@ -1,6 +1,7 @@
 import {mkdtempSync, rmSync} from 'node:fs';
 import path from 'node:path';
 import {tmpdir} from 'node:os';
+import {DatabaseSync} from 'node:sqlite';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {SessionStore} from './session-store';
 
@@ -110,6 +111,7 @@ describe('SessionStore', () => {
 				ingredientKey: 'ingredient:salt',
 				type: 'set-ingredient-checked',
 			});
+			store.applyPatch(session.id, {type: 'set-servings', servings: 6});
 			store.close();
 
 			const restartedStore = new SessionStore(databasePath);
@@ -119,12 +121,121 @@ describe('SessionStore', () => {
 				activeStepIndex: 2,
 				id: session.id,
 				recipeSlug: 'rice',
-				revision: 2,
+				revision: 3,
+				servings: 6,
 			});
 			expect(
 				restartedSession?.ingredientStates['ingredient:salt']?.checked,
 			).toBe(true);
 			restartedStore.close();
+		} finally {
+			rmSync(directory, {force: true, recursive: true});
+		}
+	});
+
+	it('applies rapid adjustments, clamps the minimum, and resets only servings', () => {
+		const store = new SessionStore(':memory:');
+		const input = {
+			recipeSlug: 'rice',
+			recipeName: 'Rice',
+			ingredientKeys: ['rice'],
+			servings: 4,
+		};
+		const session = store.createGlobalSession(input);
+		expect(session.servings).toBe(4);
+		store.applyPatch(session.id, {
+			type: 'set-ingredient-checked',
+			ingredientKey: 'rice',
+			checked: true,
+		});
+		store.applyPatch(session.id, {
+			type: 'adjust-servings',
+			change: 1,
+			defaultServings: 4,
+		});
+		store.applyPatch(session.id, {
+			type: 'adjust-servings',
+			change: 1,
+			defaultServings: 4,
+		});
+		expect(store.getSession(session.id).servings).toBe(6);
+		store.applyPatch(session.id, {type: 'set-servings', servings: 1});
+		store.applyPatch(session.id, {
+			type: 'adjust-servings',
+			change: -1,
+			defaultServings: 4,
+		});
+		expect(store.getSession(session.id).servings).toBe(1);
+		const reset = store.applyPatch(session.id, {
+			type: 'set-servings',
+			servings: null,
+		});
+		expect(reset.session.servings).toBeNull();
+		expect(reset.session.ingredientStates.rice.checked).toBe(true);
+		store.applyPatch(session.id, {
+			type: 'adjust-servings',
+			change: -1,
+			defaultServings: 4,
+		});
+		expect(store.getSession(session.id).servings).toBe(3);
+		expect(store.createGlobalSession(input).servings).toBe(4);
+		store.close();
+	});
+
+	it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_VALUE])(
+		'rejects invalid servings %s without changing the session',
+		(servings) => {
+			const store = new SessionStore(':memory:');
+			const session = store.createSession({
+				recipeSlug: 'rice',
+				recipeName: 'Rice',
+				ingredientKeys: [],
+				servings: 4,
+			});
+			expect(() =>
+				store.applyPatch(session.id, {type: 'set-servings', servings}),
+			).toThrow('Servings must be');
+			expect(store.getSession(session.id)).toEqual(session);
+			store.close();
+		},
+	);
+
+	it('migrates an existing database without losing its current session or checks', () => {
+		const directory = mkdtempSync(
+			path.join(tmpdir(), 'mealie-serving-migration-'),
+		);
+		const databasePath = path.join(directory, 'sessions.sqlite');
+		try {
+			const database = new DatabaseSync(databasePath);
+			database.exec(`
+				CREATE TABLE sessions (
+					id TEXT PRIMARY KEY, recipe_slug TEXT NOT NULL, recipe_name TEXT NOT NULL,
+					active_step_index INTEGER NOT NULL DEFAULT 0, ingredient_keys_json TEXT NOT NULL,
+					revision INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+				);
+				INSERT INTO sessions VALUES ('old', 'rice', 'Rice', 2, '["rice"]', 5, '2026-09-19', '2026-09-19');
+				CREATE TABLE ingredient_checks (session_id TEXT, ingredient_key TEXT, checked INTEGER, updated_at TEXT, PRIMARY KEY (session_id, ingredient_key));
+				INSERT INTO ingredient_checks VALUES ('old', 'rice', 1, '2026-09-19');
+				CREATE TABLE app_state (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL);
+				INSERT INTO app_state VALUES ('global_session_id', 'old', '2026-09-19');
+			`);
+			database.close();
+			const store = new SessionStore(databasePath);
+			expect(store.getGlobalSession()).toMatchObject({
+				id: 'old',
+				activeStepIndex: 2,
+				revision: 5,
+				servings: null,
+				ingredientStates: {rice: {checked: true}},
+			});
+			expect(
+				store.applyPatch('old', {
+					type: 'adjust-servings',
+					change: 1,
+					defaultServings: 4,
+				}).session.servings,
+			).toBe(5);
+			store.close();
 		} finally {
 			rmSync(directory, {force: true, recursive: true});
 		}

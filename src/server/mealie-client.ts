@@ -9,6 +9,7 @@ import type {
 	RecipeTool,
 } from '../shared/types';
 import type {SchemaOrgRecipe} from '../shared/recipe-import';
+import {getRecipeServings} from '../shared/recipe-scaling';
 import {HttpError, getString, isRecord} from './errors';
 
 type Fetcher = typeof fetch;
@@ -258,6 +259,7 @@ const mapIngredient = (
 
 	return {
 		display,
+		disableAmount: payload.disableAmount === true,
 		food,
 		key: ingredientKeyFromParts(index, {
 			display,
@@ -501,6 +503,10 @@ export const mapRecipeDetail = (payload: unknown): RecipeDetail => {
 		cookTime: asString(payload.cookTime),
 		ingredients,
 		prepTime: asString(payload.prepTime),
+		recipeServings: getRecipeServings(
+			payload.recipeServings,
+			payload.recipeYield,
+		),
 		recipeYield: asString(payload.recipeYield ?? payload.recipeServings),
 		sourceUrl: textFrom(payload.orgURL, payload.originalUrl, payload.sourceUrl),
 		steps,
